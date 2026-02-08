@@ -173,13 +173,7 @@ export function TimeTrackingSection() {
       </Card>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{entries.length}</p>
-            <p className="text-sm text-muted-foreground">Entries</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold">{totalHours.toFixed(2)}</p>

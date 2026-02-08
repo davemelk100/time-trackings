@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,14 +51,6 @@ function saveEntries(entries: TimeEntry[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
 }
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(n)
-}
-
 const emptyEntry: Omit<TimeEntry, "id"> = {
   date: "",
   timeRange: "",
@@ -87,7 +78,6 @@ export function TimeTrackingSection() {
   }, [])
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
-  const totalCost = totalHours * timeTrackingMeta.rate
 
   function openAdd() {
     setEditingEntry(null)
@@ -161,12 +151,6 @@ export function TimeTrackingSection() {
               </span>
             </div>
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">Rate</span>
-              <span className="text-sm font-medium">
-                ${timeTrackingMeta.rate}/hr
-              </span>
-            </div>
-            <div className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground">
                 Reporting Period
               </span>
@@ -179,7 +163,7 @@ export function TimeTrackingSection() {
       </Card>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold">{entries.length}</p>
@@ -190,14 +174,6 @@ export function TimeTrackingSection() {
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold">{totalHours.toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">Total Hours</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{formatCurrency(totalCost)}</p>
-            <p className="text-sm text-muted-foreground">
-              Total Cost @ ${timeTrackingMeta.rate}/hr
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -223,7 +199,7 @@ export function TimeTrackingSection() {
                     colSpan={6}
                     className="py-8 text-center text-muted-foreground"
                   >
-                    No time entries yet. Click "Add Entry" to start tracking.
+                    {"No time entries yet. Click \"Add Entry\" to start tracking."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -249,7 +225,7 @@ export function TimeTrackingSection() {
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-sm text-muted-foreground">
-                      {entry.notes || "—"}
+                      {entry.notes || "\u2014"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -281,17 +257,12 @@ export function TimeTrackingSection() {
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={2} className="font-semibold">
-                    Totals
+                    Total
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     {totalHours.toFixed(2)}
                   </TableCell>
-                  <TableCell colSpan={2}>
-                    <Badge variant="secondary">
-                      {formatCurrency(totalCost)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell />
+                  <TableCell colSpan={3} />
                 </TableRow>
               </TableFooter>
             )}
@@ -375,7 +346,10 @@ export function TimeTrackingSection() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!form.date || !form.totalHours}>
+            <Button
+              onClick={handleSave}
+              disabled={!form.date || !form.totalHours}
+            >
               {editingEntry ? "Save Changes" : "Add Entry"}
             </Button>
           </DialogFooter>

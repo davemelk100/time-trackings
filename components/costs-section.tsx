@@ -14,31 +14,13 @@ import {
   thirdPartyCosts,
 } from "@/lib/project-data"
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(n)
-}
-
 export function CostsSection() {
   return (
     <div className="flex flex-col gap-6">
       {/* Social Media Campaign */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-xl">Social Media Campaign</CardTitle>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary">
-                {formatCurrency(socialMediaCampaign.effectiveMonthly)}/mo
-              </Badge>
-              <span className="text-lg font-semibold">
-                {formatCurrency(socialMediaCampaign.totalAnnual)}/yr
-              </span>
-            </div>
-          </div>
+          <CardTitle className="text-xl">Social Media Campaign</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {/* Phases */}
@@ -46,35 +28,27 @@ export function CostsSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>Phase</TableHead>
-                <TableHead>Cost</TableHead>
+                <TableHead>Scope</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {socialMediaCampaign.phases.map((p) => (
                 <TableRow key={p.name}>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium">{p.name}</span>
-                      <div className="flex flex-wrap gap-1">
-                        {p.scope.map((s) => (
-                          <Badge
-                            key={s}
-                            variant="outline"
-                            className="text-xs font-normal"
-                          >
-                            {s}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                    <span className="font-medium">{p.name}</span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap align-top">
-                    {formatCurrency(p.cost)}
-                    {p.annualCost && (
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        ({formatCurrency(p.annualCost)}/yr)
-                      </span>
-                    )}
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {p.scope.map((s) => (
+                        <Badge
+                          key={s}
+                          variant="outline"
+                          className="text-xs font-normal"
+                        >
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -141,7 +115,7 @@ export function CostsSection() {
             </h4>
             <div className="flex flex-wrap gap-3">
               {socialMediaCampaign.expectedROI.map((r) => (
-                <Card key={r.metric} className="flex-1 min-w-[140px]">
+                <Card key={r.metric} className="min-w-[140px] flex-1">
                   <CardContent className="p-3 text-center">
                     <p className="text-lg font-semibold">{r.goal}</p>
                     <p className="text-xs text-muted-foreground">{r.metric}</p>
@@ -156,19 +130,9 @@ export function CostsSection() {
       {/* Maintenance */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-lg">
-              Ongoing Maintenance & Support
-            </CardTitle>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary">
-                {formatCurrency(maintenance.monthlyFee)}/mo
-              </Badge>
-              <span className="font-semibold">
-                {formatCurrency(maintenance.annualFee)}/yr
-              </span>
-            </div>
-          </div>
+          <CardTitle className="text-lg">
+            Ongoing Maintenance & Support
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -185,26 +149,16 @@ export function CostsSection() {
         </CardContent>
       </Card>
 
-      {/* Third-Party Costs */}
+      {/* Third-Party Software */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-lg">
-              Third-Party Software & Subscriptions
-            </CardTitle>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary">
-                {formatCurrency(thirdPartyCosts.monthlyRange.low)} –{" "}
-                {formatCurrency(thirdPartyCosts.monthlyRange.high)}/mo
-              </Badge>
-            </div>
-          </div>
+          <CardTitle className="text-lg">
+            Third-Party Software & Subscriptions
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-sm text-muted-foreground">
-            Annual estimate: {formatCurrency(thirdPartyCosts.annualRange.low)} –{" "}
-            {formatCurrency(thirdPartyCosts.annualRange.high)}. All subscriptions
-            are the responsibility of the Client.
+            All subscriptions are the responsibility of the Client.
           </p>
           <div className="flex flex-wrap gap-2">
             {thirdPartyCosts.categories.map((c) => (

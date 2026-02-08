@@ -407,7 +407,7 @@ export const defaultTimeEntries: TimeEntry[] = [
     timeRange: "3:30 - 6:45 PM, 8:00 - 9:25 PM",
     totalHours: 4.67,
     tasks: "Activated the Yoast SEO plugin. Ran SEO scans on pages. Made text and image updates based on SEO scan findings.",
-    notes: "$118.80 yearly subscription cost for Yoast SEO plugin",
+    notes: "Yoast SEO plugin activated",
   },
   {
     id: "2",

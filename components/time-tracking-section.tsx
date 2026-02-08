@@ -31,6 +31,15 @@ import {
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
 const STORAGE_KEY = "cygnet-time-entries"
+const HOURLY_RATE = 62
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(n)
+}
 
 function loadEntries(): TimeEntry[] {
   if (typeof window === "undefined") return defaultTimeEntries
@@ -78,6 +87,7 @@ export function TimeTrackingSection() {
   }, [])
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+  const totalCost = totalHours * HOURLY_RATE
 
   function openAdd() {
     setEditingEntry(null)
@@ -163,7 +173,7 @@ export function TimeTrackingSection() {
       </Card>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold">{entries.length}</p>
@@ -174,6 +184,22 @@ export function TimeTrackingSection() {
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold">{totalHours.toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">Total Hours</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold font-mono">
+              {formatCurrency(HOURLY_RATE)}
+            </p>
+            <p className="text-sm text-muted-foreground">Hourly Rate</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold font-mono text-primary">
+              {formatCurrency(totalCost)}
+            </p>
+            <p className="text-sm text-muted-foreground">Total Cost</p>
           </CardContent>
         </Card>
       </div>
@@ -187,6 +213,7 @@ export function TimeTrackingSection() {
                 <TableHead>Date</TableHead>
                 <TableHead>Time Range</TableHead>
                 <TableHead className="text-right">Hours</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
                 <TableHead>Tasks</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -196,7 +223,7 @@ export function TimeTrackingSection() {
               {entries.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-8 text-center text-muted-foreground"
                   >
                     {"No time entries yet. Click \"Add Entry\" to start tracking."}
@@ -220,6 +247,9 @@ export function TimeTrackingSection() {
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {entry.totalHours.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
                     </TableCell>
                     <TableCell className="max-w-[280px] text-sm text-muted-foreground">
                       {entry.tasks}
@@ -261,6 +291,9 @@ export function TimeTrackingSection() {
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     {totalHours.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-semibold text-primary">
+                    {formatCurrency(totalCost)}
                   </TableCell>
                   <TableCell colSpan={3} />
                 </TableRow>

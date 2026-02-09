@@ -121,7 +121,7 @@ const emptyForm: EntryForm = {
   notes: "",
 }
 
-export function TimeTrackingSection() {
+export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }) {
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [mounted, setMounted] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -211,10 +211,12 @@ export function TimeTrackingSection() {
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-xl">Time Tracking</CardTitle>
-            <Button onClick={openAdd} size="sm">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Entry
-            </Button>
+            {editMode && (
+              <Button onClick={openAdd} size="sm">
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add Entry
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -237,32 +239,6 @@ export function TimeTrackingSection() {
         </CardContent>
       </Card>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalHours.toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground">Total Hours</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="font-mono text-2xl font-bold">
-              {formatCurrency(HOURLY_RATE)}
-            </p>
-            <p className="text-sm text-muted-foreground">Hourly Rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="font-mono text-2xl font-bold text-primary">
-              {formatCurrency(totalCost)}
-            </p>
-            <p className="text-sm text-muted-foreground">Total Cost</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Entries table */}
       <Card>
         <CardContent className="p-0">
@@ -271,11 +247,13 @@ export function TimeTrackingSection() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Time Range</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
                 <TableHead>Tasks</TableHead>
                 <TableHead>Notes</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                <TableHead className="text-right">Hours</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                {editMode && (
+                  <TableHead className="w-[100px] text-right">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,40 +284,42 @@ export function TimeTrackingSection() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {entry.timeRange}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {entry.totalHours.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
-                    </TableCell>
                     <TableCell className="max-w-[280px] text-sm text-muted-foreground">
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-sm text-muted-foreground">
                       {entry.notes || "\u2014"}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(entry)}
-                          aria-label="Edit entry"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm(entry.id)}
-                          aria-label="Delete entry"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                    <TableCell className="text-right font-mono text-sm">
+                      {entry.totalHours.toFixed(2)}
                     </TableCell>
+                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
+                    </TableCell>
+                    {editMode && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEdit(entry)}
+                            aria-label="Edit entry"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteConfirm(entry.id)}
+                            aria-label="Delete entry"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -347,7 +327,7 @@ export function TimeTrackingSection() {
             {entries.length > 0 && (
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={2} className="font-semibold">
+                  <TableCell colSpan={4} className="font-semibold">
                     Total
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
@@ -356,7 +336,7 @@ export function TimeTrackingSection() {
                   <TableCell className="text-right font-mono font-semibold text-primary">
                     {formatCurrency(totalCost)}
                   </TableCell>
-                  <TableCell colSpan={3} />
+                  {editMode && <TableCell />}
                 </TableRow>
               </TableFooter>
             )}

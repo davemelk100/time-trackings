@@ -180,15 +180,18 @@ export function TimeTrackingSection({ editMode = false, clientId = "cygnet" }: {
   }
 
   async function handleSave() {
-    if (!form.date || !form.startTime || !form.endTime || calculatedHours <= 0)
-      return
-    const timeRange = `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
+    if (!form.date || !form.startTime) return
+    if (form.endTime && calculatedHours <= 0) return
+
+    const timeRange = form.endTime
+      ? `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
+      : `${formatTime12(form.startTime)} - In Progress`
     const entryData: Omit<TimeEntry, "id"> = {
       date: form.date,
       startTime: form.startTime,
       endTime: form.endTime,
       timeRange,
-      totalHours: calculatedHours,
+      totalHours: form.endTime ? calculatedHours : 0,
       tasks: form.tasks,
       notes: form.notes,
     }
@@ -513,8 +516,7 @@ export function TimeTrackingSection({ editMode = false, clientId = "cygnet" }: {
               disabled={
                 !form.date ||
                 !form.startTime ||
-                !form.endTime ||
-                calculatedHours <= 0
+                (!!form.endTime && calculatedHours <= 0)
               }
             >
               {editingEntry ? "Save Changes" : "Add Entry"}

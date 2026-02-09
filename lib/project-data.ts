@@ -390,6 +390,19 @@ export const clientResponses = {
   ],
 }
 
+// ===== Clients =====
+export interface Client {
+  id: string
+  name: string
+  storageKeyPrefix: string
+}
+
+export const defaultClients: Client[] = [
+  { id: "cygnet", name: "Cygnet Institute", storageKeyPrefix: "cygnet" },
+  { id: "client-b", name: "Client B", storageKeyPrefix: "client-b" },
+  { id: "client-c", name: "Client C", storageKeyPrefix: "client-c" },
+]
+
 // ===== Software Subscriptions =====
 export interface Subscription {
   id: string
@@ -450,7 +463,7 @@ export const defaultSubscriptions: Subscription[] = [
   {
     id: "6",
     name: "Yoast SEO",
-    category: "Security monitoring",
+    category: "SEO",
     billingCycle: "annual",
     amount: 118.80,
     renewalDate: "2026-02-06",
@@ -464,7 +477,7 @@ export const subscriptionCategories = [
   "Supabase",
   "Stripe",
   "Analytics & Monitoring",
-  "Security monitoring",
+  "SEO",
 ]
 
 // ===== Time Tracking =====

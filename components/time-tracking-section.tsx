@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,10 +35,23 @@ import {
   defaultTimeEntries,
   timeTrackingMeta,
 } from "@/lib/project-data"
+import {
+  fetchTimeEntries,
+  upsertTimeEntry,
+  deleteTimeEntry as deleteTimeEntryApi,
+  seedTimeEntries,
+} from "@/lib/supabase"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
-const STORAGE_KEY = "cygnet-time-entries"
 const HOURLY_RATE = 62
+
+function getReportingPeriod(): string {
+  const now = new Date()
+  const first = new Date(now.getFullYear(), now.getMonth(), 1)
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  return `${fmt(first)} - ${fmt(now)}`
+}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -86,25 +99,6 @@ function calcHours(start: string, end: string): number {
   return Math.round(((endMin - startMin) / 60) * 100) / 100
 }
 
-function loadEntries(): TimeEntry[] {
-  if (typeof window === "undefined") return defaultTimeEntries
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    }
-  } catch {
-    // ignore
-  }
-  return defaultTimeEntries
-}
-
-function saveEntries(entries: TimeEntry[]) {
-  if (typeof window === "undefined") return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
-}
-
 interface EntryForm {
   date: string
   startTime: string
@@ -121,9 +115,10 @@ const emptyForm: EntryForm = {
   notes: "",
 }
 
-export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }) {
+export function TimeTrackingSection({ editMode = false, clientId = "cygnet" }: { editMode?: boolean; clientId?: string }) {
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
   const [form, setForm] = useState<EntryForm>(emptyForm)
@@ -131,15 +126,35 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
 
   const timeOptions = useMemo(() => generateTimeOptions(), [])
 
+  // Fetch entries from Supabase on mount / client change
   useEffect(() => {
-    setEntries(loadEntries())
-    setMounted(true)
-  }, [])
+    let cancelled = false
+    setMounted(false)
+    setError(null)
 
-  const persist = useCallback((updated: TimeEntry[]) => {
-    setEntries(updated)
-    saveEntries(updated)
-  }, [])
+    async function load() {
+      try {
+        let rows = await fetchTimeEntries(clientId)
+        if (cancelled) return
+
+        // Seed defaults for the cygnet client on first use
+        if (rows.length === 0 && clientId === "cygnet") {
+          await seedTimeEntries(defaultTimeEntries, clientId)
+          rows = await fetchTimeEntries(clientId)
+          if (cancelled) return
+        }
+
+        setEntries(rows)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load time entries")
+      } finally {
+        if (!cancelled) setMounted(true)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  }, [clientId])
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
   const totalCost = totalHours * HOURLY_RATE
@@ -164,11 +179,11 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
     setDialogOpen(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.date || !form.startTime || !form.endTime || calculatedHours <= 0)
       return
     const timeRange = `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
-    const entry: Omit<TimeEntry, "id"> = {
+    const entryData: Omit<TimeEntry, "id"> = {
       date: form.date,
       startTime: form.startTime,
       endTime: form.endTime,
@@ -178,20 +193,40 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
       notes: form.notes,
     }
 
-    if (editingEntry) {
-      const updated = entries.map((e) =>
-        e.id === editingEntry.id ? { ...e, ...entry } : e,
-      )
-      persist(updated)
-    } else {
-      persist([...entries, { id: crypto.randomUUID(), ...entry }])
+    try {
+      if (editingEntry) {
+        const updated = { ...editingEntry, ...entryData }
+        // Optimistic update
+        setEntries((prev) => prev.map((e) => (e.id === editingEntry.id ? updated : e)))
+        await upsertTimeEntry(updated, clientId)
+      } else {
+        const newEntry: TimeEntry = { id: crypto.randomUUID(), ...entryData }
+        setEntries((prev) => [...prev, newEntry])
+        await upsertTimeEntry(newEntry, clientId)
+      }
+      setDialogOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save time entry")
+      // Re-fetch to restore consistent state
+      try {
+        const rows = await fetchTimeEntries(clientId)
+        setEntries(rows)
+      } catch { /* keep error visible */ }
     }
-    setDialogOpen(false)
   }
 
-  function handleDelete(id: string) {
-    persist(entries.filter((e) => e.id !== id))
+  async function handleDelete(id: string) {
+    // Optimistic update
+    const prev = entries
+    setEntries(entries.filter((e) => e.id !== id))
     setDeleteConfirm(null)
+
+    try {
+      await deleteTimeEntryApi(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete time entry")
+      setEntries(prev)
+    }
   }
 
   if (!mounted) {
@@ -206,6 +241,17 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
 
   return (
     <div className="flex flex-col gap-6">
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            {error}
+            <Button variant="ghost" size="sm" className="ml-2" onClick={() => setError(null)}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Meta info */}
       <Card>
         <CardHeader>
@@ -232,7 +278,7 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
                 Reporting Period
               </span>
               <span className="text-sm font-medium">
-                {timeTrackingMeta.reportingPeriod}
+                {getReportingPeriod()}
               </span>
             </div>
           </div>
@@ -246,9 +292,9 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Time Range</TableHead>
                 <TableHead>Tasks</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead>Time Range</TableHead>
                 <TableHead className="text-right">Hours</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 {editMode && (
@@ -281,14 +327,14 @@ export function TimeTrackingSection({ editMode = false }: { editMode?: boolean }
                         },
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {entry.timeRange}
-                    </TableCell>
                     <TableCell className="max-w-[280px] text-sm text-muted-foreground">
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-sm text-muted-foreground">
                       {entry.notes || "\u2014"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {entry.timeRange}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {entry.totalHours.toFixed(2)}

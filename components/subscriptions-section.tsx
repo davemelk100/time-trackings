@@ -34,9 +34,13 @@ import {
   defaultSubscriptions,
   subscriptionCategories,
 } from "@/lib/project-data"
+import {
+  fetchSubscriptions,
+  upsertSubscription,
+  deleteSubscription as deleteSubscriptionApi,
+  seedSubscriptions,
+} from "@/lib/supabase"
 import { Plus, Pencil, Trash2 } from "lucide-react"
-
-const STORAGE_KEY = "cygnet-subscriptions"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -55,34 +59,43 @@ const emptySubscription: Omit<Subscription, "id"> = {
   notes: "",
 }
 
-export function SubscriptionsSection({ editMode = false }: { editMode?: boolean }) {
+export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: { editMode?: boolean; clientId?: string }) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<Omit<Subscription, "id">>(emptySubscription)
 
-  // Load from localStorage
+  // Fetch subscriptions from Supabase on mount / client change
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        setSubscriptions(JSON.parse(stored))
-      } else {
-        setSubscriptions(defaultSubscriptions)
-      }
-    } catch {
-      setSubscriptions(defaultSubscriptions)
-    }
-    setLoaded(true)
-  }, [])
+    let cancelled = false
+    setLoaded(false)
+    setError(null)
 
-  // Persist to localStorage
-  useEffect(() => {
-    if (loaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions))
+    async function load() {
+      try {
+        let rows = await fetchSubscriptions(clientId)
+        if (cancelled) return
+
+        // Seed defaults for the cygnet client on first use
+        if (rows.length === 0 && clientId === "cygnet") {
+          await seedSubscriptions(defaultSubscriptions, clientId)
+          rows = await fetchSubscriptions(clientId)
+          if (cancelled) return
+        }
+
+        setSubscriptions(rows)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load subscriptions")
+      } finally {
+        if (!cancelled) setLoaded(true)
+      }
     }
-  }, [subscriptions, loaded])
+
+    load()
+    return () => { cancelled = true }
+  }, [clientId])
 
   const totalMonthly = subscriptions.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount
@@ -110,31 +123,64 @@ export function SubscriptionsSection({ editMode = false }: { editMode?: boolean 
     setDialogOpen(true)
   }, [])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!form.name.trim()) return
 
-    if (editingId) {
-      setSubscriptions((prev) =>
-        prev.map((s) => (s.id === editingId ? { ...s, ...form } : s))
-      )
-    } else {
-      const newSub: Subscription = {
-        id: crypto.randomUUID(),
-        ...form,
+    try {
+      if (editingId) {
+        const updated: Subscription = { id: editingId, ...form }
+        // Optimistic update
+        setSubscriptions((prev) =>
+          prev.map((s) => (s.id === editingId ? updated : s))
+        )
+        await upsertSubscription(updated, clientId)
+      } else {
+        const newSub: Subscription = {
+          id: crypto.randomUUID(),
+          ...form,
+        }
+        setSubscriptions((prev) => [...prev, newSub])
+        await upsertSubscription(newSub, clientId)
       }
-      setSubscriptions((prev) => [...prev, newSub])
+      setDialogOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save subscription")
+      // Re-fetch to restore consistent state
+      try {
+        const rows = await fetchSubscriptions(clientId)
+        setSubscriptions(rows)
+      } catch { /* keep error visible */ }
     }
-    setDialogOpen(false)
-  }, [editingId, form])
+  }, [editingId, form, clientId])
 
-  const handleDelete = useCallback((id: string) => {
-    setSubscriptions((prev) => prev.filter((s) => s.id !== id))
-  }, [])
+  const handleDelete = useCallback(async (id: string) => {
+    const prev = subscriptions
+    // Optimistic update
+    setSubscriptions((current) => current.filter((s) => s.id !== id))
+
+    try {
+      await deleteSubscriptionApi(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete subscription")
+      setSubscriptions(prev)
+    }
+  }, [subscriptions])
 
   if (!loaded) return null
 
   return (
     <div className="flex flex-col gap-6">
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            {error}
+            <Button variant="ghost" size="sm" className="ml-2" onClick={() => setError(null)}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>

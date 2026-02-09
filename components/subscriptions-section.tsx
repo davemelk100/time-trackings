@@ -172,7 +172,7 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
     <div className="flex flex-col gap-6">
       {error && (
         <Card className="border-destructive">
-          <CardContent className="p-4 text-sm text-destructive">
+          <CardContent className="p-4text-destructive">
             {error}
             <Button variant="ghost" size="sm" className="ml-2" onClick={() => setError(null)}>
               Dismiss
@@ -184,8 +184,8 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
-            <CardTitle className="text-lg">Software Subscriptions</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <CardTitle>Software Subscriptions</CardTitle>
+            <p className="mt-1text-muted-foreground">
               Third-party software and service subscriptions
             </p>
           </div>
@@ -207,7 +207,6 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                   <TableHead>Renewal Date</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Monthly Equiv.</TableHead>
                   {editMode && (
                     <TableHead className="w-[100px] text-right">Actions</TableHead>
                   )}
@@ -227,35 +226,28 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                 ) : (
                   subscriptions.map((sub) => (
                     <TableRow key={sub.id}>
-                      <TableCell className="font-medium text-sm">
+                      <TableCell className="font-medium">
                         {sub.name}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {sub.category}
                       </TableCell>
-                      <TableCell className="text-sm capitalize">
+                      <TableCell className="capitalize">
                         {sub.billingCycle}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {sub.renewalDate
                           ? new Date(sub.renewalDate + "T00:00:00").toLocaleDateString()
                           : "\u2014"}
                       </TableCell>
-                      <TableCell className="max-w-[200px] text-sm text-muted-foreground">
+                      <TableCell className="max-w-[200px]text-muted-foreground">
                         {sub.notes || "\u2014"}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="text-right font-mono">
                         {formatCurrency(sub.amount)}
-                        <span className="ml-1 text-xs text-muted-foreground">
+                        <span className="ml-1 text-muted-foreground">
                           /{sub.billingCycle === "monthly" ? "mo" : "yr"}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                        {formatCurrency(
-                          sub.billingCycle === "monthly"
-                            ? sub.amount
-                            : sub.amount / 12
-                        )}
                       </TableCell>
                       {editMode && (
                         <TableCell className="text-right">
@@ -293,14 +285,8 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold">
                       {formatCurrency(totalAnnual)}
-                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      <span className="ml-1 font-normal text-muted-foreground">
                         /yr
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-primary">
-                      {formatCurrency(totalMonthly)}
-                      <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        /mo
                       </span>
                     </TableCell>
                     {editMode && <TableCell />}

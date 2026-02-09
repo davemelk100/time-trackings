@@ -4,6 +4,7 @@ import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
+import { GrandTotalSection } from "@/components/grand-total-section"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { defaultClients } from "@/lib/project-data"
 
@@ -31,8 +32,9 @@ export default function Page() {
         )}
         <TimeTrackingSection editMode={editMode} clientId={activeClient.id} />
         <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
+        <GrandTotalSection clientId={activeClient.id} />
       </main>
-      <footer className="relative border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
+      <footer className="relative border-t border-border bg-card py-4 text-center text-muted-foreground">
         <button
           onClick={() => setEditMode((prev) => !prev)}
           className={`absolute right-4 bottom-1/2 translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${

@@ -6,6 +6,13 @@
   .text-balance {
     text-wrap: balance;
   }
+  .text-xs,
+  .text-sm,
+  .text-base,
+  .text-lg {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
 }
 
 @layer base {
@@ -86,5 +93,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 16px;
+  }
+  td, tfoot td {
+    font-family: var(--font-jetbrains), ui-monospace, monospace;
   }
 }

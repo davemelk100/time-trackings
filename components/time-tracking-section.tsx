@@ -245,10 +245,10 @@ export function TimeTrackingSection() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Time Range</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
                 <TableHead>Tasks</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="text-right">Hours</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -280,17 +280,17 @@ export function TimeTrackingSection() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {entry.timeRange}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {entry.totalHours.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
-                    </TableCell>
                     <TableCell className="max-w-[280px] text-sm text-muted-foreground">
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-sm text-muted-foreground">
                       {entry.notes || "\u2014"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {entry.totalHours.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -321,7 +321,7 @@ export function TimeTrackingSection() {
             {entries.length > 0 && (
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={2} className="font-semibold">
+                  <TableCell colSpan={4} className="font-semibold">
                     Total
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
@@ -330,7 +330,7 @@ export function TimeTrackingSection() {
                   <TableCell className="text-right font-mono font-semibold text-primary">
                     {formatCurrency(totalCost)}
                   </TableCell>
-                  <TableCell colSpan={3} />
+                  <TableCell />
                 </TableRow>
               </TableFooter>
             )}

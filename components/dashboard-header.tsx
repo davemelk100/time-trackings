@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Moon, Sun } from "lucide-react"
 
-export function DashboardHeader() {
+export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientName?: string }) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -18,7 +18,7 @@ export function DashboardHeader() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            Cygnet Institute
+            {clientName}
           </h1>
           <p className="text-sm text-muted-foreground">
             Project Dashboard

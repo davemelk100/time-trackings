@@ -17,7 +17,7 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
+      <DashboardHeader clientName={activeClient.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
         {editMode && (
           <Tabs value={activeClientId} onValueChange={setActiveClientId}>

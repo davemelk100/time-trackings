@@ -399,8 +399,8 @@ export interface Client {
 
 export const defaultClients: Client[] = [
   { id: "cygnet", name: "Cygnet Institute", storageKeyPrefix: "cygnet" },
-  { id: "client-b", name: "Client B", storageKeyPrefix: "client-b" },
-  { id: "client-c", name: "Client C", storageKeyPrefix: "client-c" },
+  { id: "client-b", name: "Mind Flip", storageKeyPrefix: "client-b" },
+  { id: "client-c", name: "A. Lawrence", storageKeyPrefix: "client-c" },
 ]
 
 // ===== Software Subscriptions =====

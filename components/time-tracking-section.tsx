@@ -331,12 +331,6 @@ export function TimeTrackingSection({
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
               <CardTitle>Invoice Details</CardTitle>
-              {editMode && (
-                <Button onClick={openAdd} size="sm" className="w-fit">
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Add Entry
-                </Button>
-              )}
             </div>
             <div className="flex flex-col gap-0.5 items-center text-center">
               <span className="text-muted-foreground">Payable To</span>
@@ -366,6 +360,12 @@ export function TimeTrackingSection({
               Billable hours and task details
             </p>
           </div>
+          {editMode && (
+            <Button onClick={openAdd} size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Entry
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>

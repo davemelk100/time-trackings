@@ -21,7 +21,7 @@ export default function Page() {
         &middot; All data stored locally in your browser
         <button
           onClick={() => setEditMode((prev) => !prev)}
-          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-5 w-5 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
+          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
             editMode
               ? "bg-primary"
               : "bg-card"

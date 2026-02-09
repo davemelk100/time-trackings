@@ -390,6 +390,83 @@ export const clientResponses = {
   ],
 }
 
+// ===== Software Subscriptions =====
+export interface Subscription {
+  id: string
+  name: string
+  category: string
+  billingCycle: "monthly" | "annual"
+  amount: number
+  renewalDate: string
+  notes: string
+}
+
+export const defaultSubscriptions: Subscription[] = [
+  {
+    id: "1",
+    name: "Vercel Pro",
+    category: "Hosting & Infrastructure",
+    billingCycle: "monthly",
+    amount: 20,
+    renewalDate: "2025-03-01",
+    notes: "Next.js hosting and deployment",
+  },
+  {
+    id: "2",
+    name: "Sanity CMS",
+    category: "CMS (Sanity)",
+    billingCycle: "monthly",
+    amount: 15,
+    renewalDate: "2025-03-01",
+    notes: "Content management system",
+  },
+  {
+    id: "3",
+    name: "Supabase Pro",
+    category: "Supabase",
+    billingCycle: "monthly",
+    amount: 25,
+    renewalDate: "2025-03-01",
+    notes: "Database and auth backend",
+  },
+  {
+    id: "4",
+    name: "Stripe",
+    category: "Stripe",
+    billingCycle: "monthly",
+    amount: 0,
+    renewalDate: "",
+    notes: "Pay-per-transaction, no fixed subscription",
+  },
+  {
+    id: "5",
+    name: "PostHog",
+    category: "Analytics & Monitoring",
+    billingCycle: "monthly",
+    amount: 0,
+    renewalDate: "",
+    notes: "Free tier for analytics",
+  },
+  {
+    id: "6",
+    name: "Yoast SEO",
+    category: "Security monitoring",
+    billingCycle: "annual",
+    amount: 118.80,
+    renewalDate: "2026-02-06",
+    notes: "SEO plugin for WordPress",
+  },
+]
+
+export const subscriptionCategories = [
+  "Hosting & Infrastructure",
+  "CMS (Sanity)",
+  "Supabase",
+  "Stripe",
+  "Analytics & Monitoring",
+  "Security monitoring",
+]
+
 // ===== Time Tracking =====
 export interface TimeEntry {
   id: string

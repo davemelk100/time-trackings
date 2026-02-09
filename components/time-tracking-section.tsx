@@ -237,32 +237,6 @@ export function TimeTrackingSection() {
         </CardContent>
       </Card>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalHours.toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground">Total Hours</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="font-mono text-2xl font-bold">
-              {formatCurrency(HOURLY_RATE)}
-            </p>
-            <p className="text-sm text-muted-foreground">Hourly Rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="font-mono text-2xl font-bold text-primary">
-              {formatCurrency(totalCost)}
-            </p>
-            <p className="text-sm text-muted-foreground">Total Cost</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Entries table */}
       <Card>
         <CardContent className="p-0">

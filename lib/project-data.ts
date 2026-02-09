@@ -394,6 +394,8 @@ export const clientResponses = {
 export interface TimeEntry {
   id: string
   date: string
+  startTime: string
+  endTime: string
   timeRange: string
   totalHours: number
   tasks: string
@@ -404,7 +406,9 @@ export const defaultTimeEntries: TimeEntry[] = [
   {
     id: "1",
     date: "2025-02-06",
-    timeRange: "3:30 - 6:45 PM, 8:00 - 9:25 PM",
+    startTime: "15:30",
+    endTime: "21:25",
+    timeRange: "3:30 PM - 9:25 PM",
     totalHours: 4.67,
     tasks: "Activated the Yoast SEO plugin. Ran SEO scans on pages. Made text and image updates based on SEO scan findings.",
     notes: "Yoast SEO plugin activated",
@@ -412,6 +416,8 @@ export const defaultTimeEntries: TimeEntry[] = [
   {
     id: "2",
     date: "2025-02-08",
+    startTime: "12:45",
+    endTime: "13:25",
     timeRange: "12:45 PM - 1:25 PM",
     totalHours: 0.67,
     tasks: "Took baseline screenshots of SEO numbers and enabled further Yoast SEO features.",

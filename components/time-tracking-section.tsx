@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   type TimeEntry,
   defaultTimeEntries,
   timeTrackingMeta,
@@ -39,6 +46,44 @@ function formatCurrency(n: number) {
     currency: "USD",
     minimumFractionDigits: 2,
   }).format(n)
+}
+
+/** Generate time options in 15-min increments from 6:00 AM to 11:45 PM */
+function generateTimeOptions() {
+  const options: { value: string; label: string }[] = []
+  for (let h = 6; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hour24 = String(h).padStart(2, "0")
+      const min = String(m).padStart(2, "0")
+      const value = `${hour24}:${min}`
+
+      const period = h >= 12 ? "PM" : "AM"
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+      const label = `${hour12}:${min} ${period}`
+      options.push({ value, label })
+    }
+  }
+  return options
+}
+
+/** Convert 24h time string "HH:MM" to a readable 12h label */
+function formatTime12(time24: string): string {
+  const [hStr, mStr] = time24.split(":")
+  const h = parseInt(hStr, 10)
+  const period = h >= 12 ? "PM" : "AM"
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${mStr} ${period}`
+}
+
+/** Calculate hours between two 24h time strings */
+function calcHours(start: string, end: string): number {
+  if (!start || !end) return 0
+  const [sh, sm] = start.split(":").map(Number)
+  const [eh, em] = end.split(":").map(Number)
+  const startMin = sh * 60 + sm
+  const endMin = eh * 60 + em
+  if (endMin <= startMin) return 0
+  return Math.round(((endMin - startMin) / 60) * 100) / 100
 }
 
 function loadEntries(): TimeEntry[] {
@@ -60,10 +105,18 @@ function saveEntries(entries: TimeEntry[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
 }
 
-const emptyEntry: Omit<TimeEntry, "id"> = {
+interface EntryForm {
+  date: string
+  startTime: string
+  endTime: string
+  tasks: string
+  notes: string
+}
+
+const emptyForm: EntryForm = {
   date: "",
-  timeRange: "",
-  totalHours: 0,
+  startTime: "",
+  endTime: "",
   tasks: "",
   notes: "",
 }
@@ -73,8 +126,10 @@ export function TimeTrackingSection() {
   const [mounted, setMounted] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
-  const [form, setForm] = useState<Omit<TimeEntry, "id">>(emptyEntry)
+  const [form, setForm] = useState<EntryForm>(emptyForm)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  const timeOptions = useMemo(() => generateTimeOptions(), [])
 
   useEffect(() => {
     setEntries(loadEntries())
@@ -89,9 +144,11 @@ export function TimeTrackingSection() {
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
   const totalCost = totalHours * HOURLY_RATE
 
+  const calculatedHours = calcHours(form.startTime, form.endTime)
+
   function openAdd() {
     setEditingEntry(null)
-    setForm(emptyEntry)
+    setForm(emptyForm)
     setDialogOpen(true)
   }
 
@@ -99,8 +156,8 @@ export function TimeTrackingSection() {
     setEditingEntry(entry)
     setForm({
       date: entry.date,
-      timeRange: entry.timeRange,
-      totalHours: entry.totalHours,
+      startTime: entry.startTime || "",
+      endTime: entry.endTime || "",
       tasks: entry.tasks,
       notes: entry.notes,
     })
@@ -108,18 +165,26 @@ export function TimeTrackingSection() {
   }
 
   function handleSave() {
-    if (!form.date || !form.totalHours) return
+    if (!form.date || !form.startTime || !form.endTime || calculatedHours <= 0)
+      return
+    const timeRange = `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
+    const entry: Omit<TimeEntry, "id"> = {
+      date: form.date,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      timeRange,
+      totalHours: calculatedHours,
+      tasks: form.tasks,
+      notes: form.notes,
+    }
+
     if (editingEntry) {
       const updated = entries.map((e) =>
-        e.id === editingEntry.id ? { ...e, ...form } : e
+        e.id === editingEntry.id ? { ...e, ...entry } : e,
       )
       persist(updated)
     } else {
-      const newEntry: TimeEntry = {
-        id: crypto.randomUUID(),
-        ...form,
-      }
-      persist([...entries, newEntry])
+      persist([...entries, { id: crypto.randomUUID(), ...entry }])
     }
     setDialogOpen(false)
   }
@@ -182,7 +247,7 @@ export function TimeTrackingSection() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold font-mono">
+            <p className="font-mono text-2xl font-bold">
               {formatCurrency(HOURLY_RATE)}
             </p>
             <p className="text-sm text-muted-foreground">Hourly Rate</p>
@@ -190,7 +255,7 @@ export function TimeTrackingSection() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold font-mono text-primary">
+            <p className="font-mono text-2xl font-bold text-primary">
               {formatCurrency(totalCost)}
             </p>
             <p className="text-sm text-muted-foreground">Total Cost</p>
@@ -220,7 +285,9 @@ export function TimeTrackingSection() {
                     colSpan={7}
                     className="py-8 text-center text-muted-foreground"
                   >
-                    {"No time entries yet. Click \"Add Entry\" to start tracking."}
+                    {
+                      'No time entries yet. Click "Add Entry" to start tracking.'
+                    }
                   </TableCell>
                 </TableRow>
               ) : (
@@ -233,7 +300,7 @@ export function TimeTrackingSection() {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
-                        }
+                        },
                       )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm">
@@ -307,7 +374,7 @@ export function TimeTrackingSection() {
             <DialogDescription>
               {editingEntry
                 ? "Update the details of this time entry."
-                : "Enter the details of the work performed."}
+                : "Select start and end times to automatically calculate hours."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -320,34 +387,76 @@ export function TimeTrackingSection() {
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-time">Time Range</Label>
-              <Input
-                id="entry-time"
-                placeholder="e.g. 3:30 - 6:45 PM"
-                value={form.timeRange}
-                onChange={(e) =>
-                  setForm({ ...form, timeRange: e.target.value })
-                }
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Start Time</Label>
+                <Select
+                  value={form.startTime}
+                  onValueChange={(val) =>
+                    setForm({ ...form, startTime: val })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>End Time</Label>
+                <Select
+                  value={form.endTime}
+                  onValueChange={(val) =>
+                    setForm({ ...form, endTime: val })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select end" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-hours">Total Hours</Label>
-              <Input
-                id="entry-hours"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="e.g. 4.67"
-                value={form.totalHours || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    totalHours: Number.parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
+
+            {/* Auto-calculated hours preview */}
+            {form.startTime && form.endTime && (
+              <div className="flex items-center gap-3 rounded-md border border-border bg-muted/50 px-4 py-3">
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">
+                    Calculated Hours
+                  </span>
+                  <span className="font-mono text-lg font-bold">
+                    {calculatedHours > 0
+                      ? calculatedHours.toFixed(2)
+                      : "Invalid range"}
+                  </span>
+                </div>
+                {calculatedHours > 0 && (
+                  <div className="ml-auto flex flex-col text-right">
+                    <span className="text-xs text-muted-foreground">
+                      Estimated Cost
+                    </span>
+                    <span className="font-mono text-lg font-bold text-primary">
+                      {formatCurrency(calculatedHours * HOURLY_RATE)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="entry-tasks">Tasks</Label>
               <Textarea
@@ -375,7 +484,12 @@ export function TimeTrackingSection() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!form.date || !form.totalHours}
+              disabled={
+                !form.date ||
+                !form.startTime ||
+                !form.endTime ||
+                calculatedHours <= 0
+              }
             >
               {editingEntry ? "Save Changes" : "Add Entry"}
             </Button>

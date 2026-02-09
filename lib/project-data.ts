@@ -412,6 +412,7 @@ export interface Subscription {
   amount: number
   renewalDate: string
   notes: string
+  attachments: Attachment[]
 }
 
 export const defaultSubscriptions: Subscription[] = [
@@ -423,6 +424,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 20,
     renewalDate: "2025-03-01",
     notes: "Next.js hosting and deployment",
+    attachments: [],
   },
   {
     id: "2",
@@ -432,6 +434,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 15,
     renewalDate: "2025-03-01",
     notes: "Content management system",
+    attachments: [],
   },
   {
     id: "3",
@@ -441,6 +444,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 25,
     renewalDate: "2025-03-01",
     notes: "Database and auth backend",
+    attachments: [],
   },
   {
     id: "4",
@@ -450,6 +454,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 0,
     renewalDate: "",
     notes: "Pay-per-transaction, no fixed subscription",
+    attachments: [],
   },
   {
     id: "5",
@@ -459,6 +464,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 0,
     renewalDate: "",
     notes: "Free tier for analytics",
+    attachments: [],
   },
   {
     id: "6",
@@ -468,6 +474,7 @@ export const defaultSubscriptions: Subscription[] = [
     amount: 118.80,
     renewalDate: "2026-02-06",
     notes: "SEO plugin for WordPress",
+    attachments: [],
   },
 ]
 

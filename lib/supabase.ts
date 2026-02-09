@@ -30,6 +30,7 @@ interface SubscriptionRow {
   amount: number
   renewal_date: string | null
   notes: string
+  attachments: Attachment[]
 }
 
 function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
@@ -70,6 +71,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
     amount: Number(row.amount),
     renewalDate: row.renewal_date ?? "",
     notes: row.notes,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
   }
 }
 
@@ -83,6 +85,7 @@ function subscriptionToRow(sub: Subscription, clientId: string): Omit<Subscripti
     amount: sub.amount,
     renewal_date: sub.renewalDate || null,
     notes: sub.notes,
+    attachments: sub.attachments ?? [],
   }
 }
 

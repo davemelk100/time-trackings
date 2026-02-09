@@ -12,9 +12,9 @@ const _jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Cygnet Institute - Project Dashboard",
+  title: "Melkonian Industries - Time Tracking",
   description:
-    "Statement of Work dashboard for the Cygnet Institute website and mobile application modernization project.",
+    "Time tracking and invoicing dashboard for Melkonian Industries LLC.",
 }
 
 export const viewport: Viewport = {

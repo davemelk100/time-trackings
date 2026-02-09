@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select"
 import {
   type Subscription,
+  type Attachment,
   defaultSubscriptions,
   subscriptionCategories,
 } from "@/lib/project-data"
@@ -39,8 +40,12 @@ import {
   upsertSubscription,
   deleteSubscription as deleteSubscriptionApi,
   seedSubscriptions,
+  uploadAttachment,
+  getAttachmentUrl,
+  deleteAttachment,
+  deleteAllAttachments,
 } from "@/lib/supabase"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -57,6 +62,7 @@ const emptySubscription: Omit<Subscription, "id"> = {
   amount: 0,
   renewalDate: "",
   notes: "",
+  attachments: [],
 }
 
 export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: { editMode?: boolean; clientId?: string }) {
@@ -66,6 +72,13 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<Omit<Subscription, "id">>(emptySubscription)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [viewAttachmentsSub, setViewAttachmentsSub] = useState<Subscription | null>(null)
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
   // Fetch subscriptions from Supabase on mount / client change
   useEffect(() => {
@@ -107,6 +120,9 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
   const openAdd = useCallback(() => {
     setEditingId(null)
     setForm(emptySubscription)
+    setPendingFiles([])
+    setExistingAttachments([])
+    setAttachmentsToDelete([])
     setDialogOpen(true)
   }, [])
 
@@ -119,25 +135,51 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
       amount: sub.amount,
       renewalDate: sub.renewalDate,
       notes: sub.notes,
+      attachments: sub.attachments ?? [],
     })
+    setPendingFiles([])
+    setExistingAttachments(sub.attachments ?? [])
+    setAttachmentsToDelete([])
     setDialogOpen(true)
   }, [])
 
   const handleSave = useCallback(async () => {
     if (!form.name.trim()) return
 
+    const subId = editingId ?? crypto.randomUUID()
+
     try {
+      setUploading(true)
+
+      // Delete attachments marked for removal
+      for (const att of attachmentsToDelete) {
+        await deleteAttachment(att.path)
+      }
+
+      // Upload new files
+      const newAttachments: Attachment[] = []
+      for (const file of pendingFiles) {
+        const att = await uploadAttachment(file, clientId, subId)
+        newAttachments.push(att)
+      }
+
+      // Compute final attachments list
+      const remainingExisting = existingAttachments.filter(
+        (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+      )
+      const finalAttachments = [...remainingExisting, ...newAttachments]
+
       if (editingId) {
-        const updated: Subscription = { id: editingId, ...form }
-        // Optimistic update
+        const updated: Subscription = { id: editingId, ...form, attachments: finalAttachments }
         setSubscriptions((prev) =>
           prev.map((s) => (s.id === editingId ? updated : s))
         )
         await upsertSubscription(updated, clientId)
       } else {
         const newSub: Subscription = {
-          id: crypto.randomUUID(),
+          id: subId,
           ...form,
+          attachments: finalAttachments,
         }
         setSubscriptions((prev) => [...prev, newSub])
         await upsertSubscription(newSub, clientId)
@@ -150,15 +192,20 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
         const rows = await fetchSubscriptions(clientId)
         setSubscriptions(rows)
       } catch { /* keep error visible */ }
+    } finally {
+      setUploading(false)
     }
-  }, [editingId, form, clientId])
+  }, [editingId, form, clientId, pendingFiles, existingAttachments, attachmentsToDelete])
 
   const handleDelete = useCallback(async (id: string) => {
     const prev = subscriptions
-    // Optimistic update
+    const subToDelete = subscriptions.find((s) => s.id === id)
     setSubscriptions((current) => current.filter((s) => s.id !== id))
 
     try {
+      if (subToDelete?.attachments?.length) {
+        await deleteAllAttachments(subToDelete.attachments)
+      }
       await deleteSubscriptionApi(id)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete subscription")
@@ -244,9 +291,21 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                         {sub.notes || "\u2014"}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(sub.amount)}
-                        <span className="ml-1 text-muted-foreground">
-                          /{sub.billingCycle === "monthly" ? "mo" : "yr"}
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatCurrency(sub.amount)}
+                          <span className="ml-1 text-muted-foreground">
+                            /{sub.billingCycle === "monthly" ? "mo" : "yr"}
+                          </span>
+                          {sub.attachments?.length > 0 && (
+                            <button
+                              type="button"
+                              className="inline-flex text-muted-foreground hover:text-primary"
+                              title={`${sub.attachments.length} receipt(s)`}
+                              onClick={() => setViewAttachmentsSub(sub)}
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </span>
                       </TableCell>
                       {editMode && (
@@ -397,13 +456,140 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                 placeholder="Optional notes"
               />
             </div>
+
+            {/* Receipts / Attachments */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Receipts</Label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  const valid = files.filter((f) => {
+                    if (f.size > MAX_FILE_SIZE) {
+                      setError(`"${f.name}" exceeds 5 MB limit`)
+                      return false
+                    }
+                    return true
+                  })
+                  setPendingFiles((prev) => [...prev, ...valid])
+                  e.target.value = ""
+                }}
+              />
+
+              {/* Existing attachments */}
+              {existingAttachments
+                .filter((a) => !attachmentsToDelete.some((d) => d.path === a.path))
+                .map((att) => (
+                  <div
+                    key={att.path}
+                    className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{att.name}</span>
+                    <span className="ml-auto text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                      type="button"
+                      className="text-destructive hover:text-destructive/80"
+                      onClick={() => setAttachmentsToDelete((prev) => [...prev, att])}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+              {/* Pending files */}
+              {pendingFiles.map((file, idx) => (
+                <div
+                  key={`pending-${idx}`}
+                  className="flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:text-destructive/80"
+                    onClick={() =>
+                      setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!form.name.trim()}>
-              {editingId ? "Save Changes" : "Add Subscription"}
+            <Button onClick={handleSave} disabled={uploading || !form.name.trim()}>
+              {uploading
+                ? "Uploading..."
+                : editingId
+                  ? "Save Changes"
+                  : "Add Subscription"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Attachments Dialog */}
+      <Dialog
+        open={viewAttachmentsSub !== null}
+        onOpenChange={() => setViewAttachmentsSub(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Receipts</DialogTitle>
+            <DialogDescription>
+              {viewAttachmentsSub?.attachments?.length ?? 0} receipt(s) attached
+              to this subscription.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+            {viewAttachmentsSub?.attachments?.map((att) => {
+              const url = getAttachmentUrl(att.path)
+              return (
+                <div key={att.path} className="flex flex-col gap-2">
+                  <img
+                    src={url}
+                    alt={att.name}
+                    className="w-full rounded-md border object-contain max-h-64"
+                  />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{att.name}</span>
+                    <span className="text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <a
+                      href={url}
+                      download={att.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewAttachmentsSub(null)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -328,7 +328,7 @@ export function TimeTrackingSection({
       {/* Meta info */}
       <Card>
         <CardHeader>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="flex flex-col gap-2">
               <CardTitle>Invoice Details</CardTitle>
             </div>
@@ -340,6 +340,10 @@ export function TimeTrackingSection({
                 <br />
                 Waterford, MI 48329
               </span>
+            </div>
+            <div className="flex flex-col gap-0.5 items-center text-center">
+              <span className="text-muted-foreground">Venmo</span>
+              <span className="font-medium">@MelkonianLLC</span>
             </div>
             <div className="flex justify-end">
               <div className="flex flex-col gap-0.5 text-center">

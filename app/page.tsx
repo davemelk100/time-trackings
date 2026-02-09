@@ -4,7 +4,7 @@ import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
-import { Pencil } from "lucide-react"
+
 
 export default function Page() {
   const [editMode, setEditMode] = useState(false)
@@ -21,15 +21,13 @@ export default function Page() {
         &middot; All data stored locally in your browser
         <button
           onClick={() => setEditMode((prev) => !prev)}
-          className={`absolute right-4 bottom-1/2 translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-5 w-5 rounded-full border transition-colors ${
             editMode
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-card text-muted-foreground"
+              ? "border-primary bg-primary"
+              : "border-border bg-card"
           }`}
           aria-label={editMode ? "Disable editing" : "Enable editing"}
-        >
-          <Pencil className="h-3 w-3" />
-        </button>
+        />
       </footer>
     </div>
   )

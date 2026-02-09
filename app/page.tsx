@@ -21,10 +21,10 @@ export default function Page() {
         &middot; All data stored locally in your browser
         <button
           onClick={() => setEditMode((prev) => !prev)}
-          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-5 w-5 rounded-full border transition-colors ${
+          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-5 w-5 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
             editMode
-              ? "border-primary bg-primary"
-              : "border-border bg-card"
+              ? "bg-primary"
+              : "bg-card"
           }`}
           aria-label={editMode ? "Disable editing" : "Enable editing"}
         />

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   type TimeEntry,
+  type Attachment,
   defaultTimeEntries,
   timeTrackingMeta,
 } from "@/lib/project-data";
@@ -40,8 +41,12 @@ import {
   upsertTimeEntry,
   deleteTimeEntry as deleteTimeEntryApi,
   seedTimeEntries,
+  uploadAttachment,
+  getAttachmentUrl,
+  deleteAttachment,
+  deleteAllAttachments,
 } from "@/lib/supabase";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 const HOURLY_RATE = 62;
 
@@ -129,6 +134,13 @@ export function TimeTrackingSection({
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState<EntryForm>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [viewAttachmentsEntry, setViewAttachmentsEntry] = useState<TimeEntry | null>(null);
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   const timeOptions = useMemo(() => generateTimeOptions(), []);
 
@@ -175,6 +187,9 @@ export function TimeTrackingSection({
   function openAdd() {
     setEditingEntry(null);
     setForm(emptyForm);
+    setPendingFiles([]);
+    setExistingAttachments([]);
+    setAttachmentsToDelete([]);
     setDialogOpen(true);
   }
 
@@ -187,6 +202,9 @@ export function TimeTrackingSection({
       tasks: entry.tasks,
       notes: entry.notes,
     });
+    setPendingFiles([]);
+    setExistingAttachments(entry.attachments ?? []);
+    setAttachmentsToDelete([]);
     setDialogOpen(true);
   }
 
@@ -197,26 +215,49 @@ export function TimeTrackingSection({
     const timeRange = form.endTime
       ? `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
       : `${formatTime12(form.startTime)} - In Progress`;
-    const entryData: Omit<TimeEntry, "id"> = {
-      date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime,
-      timeRange,
-      totalHours: form.endTime ? calculatedHours : 0,
-      tasks: form.tasks,
-      notes: form.notes,
-    };
+
+    const entryId = editingEntry?.id ?? crypto.randomUUID();
 
     try {
+      setUploading(true);
+
+      // Delete attachments marked for removal
+      for (const att of attachmentsToDelete) {
+        await deleteAttachment(att.path);
+      }
+
+      // Upload new files
+      const newAttachments: Attachment[] = [];
+      for (const file of pendingFiles) {
+        const att = await uploadAttachment(file, clientId, entryId);
+        newAttachments.push(att);
+      }
+
+      // Compute final attachments list
+      const remainingExisting = existingAttachments.filter(
+        (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+      );
+      const finalAttachments = [...remainingExisting, ...newAttachments];
+
+      const entryData: Omit<TimeEntry, "id"> = {
+        date: form.date,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        timeRange,
+        totalHours: form.endTime ? calculatedHours : 0,
+        tasks: form.tasks,
+        notes: form.notes,
+        attachments: finalAttachments,
+      };
+
       if (editingEntry) {
         const updated = { ...editingEntry, ...entryData };
-        // Optimistic update
         setEntries((prev) =>
           prev.map((e) => (e.id === editingEntry.id ? updated : e)),
         );
         await upsertTimeEntry(updated, clientId);
       } else {
-        const newEntry: TimeEntry = { id: crypto.randomUUID(), ...entryData };
+        const newEntry: TimeEntry = { id: entryId, ...entryData };
         setEntries((prev) => [...prev, newEntry]);
         await upsertTimeEntry(newEntry, clientId);
       }
@@ -225,23 +266,28 @@ export function TimeTrackingSection({
       setError(
         err instanceof Error ? err.message : "Failed to save time entry",
       );
-      // Re-fetch to restore consistent state
       try {
         const rows = await fetchTimeEntries(clientId);
         setEntries(rows);
       } catch {
         /* keep error visible */
       }
+    } finally {
+      setUploading(false);
     }
   }
 
   async function handleDelete(id: string) {
-    // Optimistic update
     const prev = entries;
+    const entryToDelete = entries.find((e) => e.id === id);
     setEntries(entries.filter((e) => e.id !== id));
     setDeleteConfirm(null);
 
     try {
+      // Clean up storage files
+      if (entryToDelete?.attachments?.length) {
+        await deleteAllAttachments(entryToDelete.attachments);
+      }
       await deleteTimeEntryApi(id);
     } catch (err) {
       setError(
@@ -376,7 +422,19 @@ export function TimeTrackingSection({
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-monotext-muted-foreground">
-                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
+                      <span className="inline-flex items-center gap-1.5">
+                        {formatCurrency(entry.totalHours * HOURLY_RATE)}
+                        {entry.attachments?.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex text-muted-foreground hover:text-primary"
+                            title={`${entry.attachments.length} receipt(s)`}
+                            onClick={() => setViewAttachmentsEntry(entry)}
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
                     </TableCell>
                     {editMode && (
                       <TableCell className="text-right">
@@ -535,6 +593,75 @@ export function TimeTrackingSection({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </div>
+
+            {/* Receipts / Attachments */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Receipts</Label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  const valid = files.filter((f) => {
+                    if (f.size > MAX_FILE_SIZE) {
+                      setError(`"${f.name}" exceeds 5 MB limit`);
+                      return false;
+                    }
+                    return true;
+                  });
+                  setPendingFiles((prev) => [...prev, ...valid]);
+                  e.target.value = "";
+                }}
+              />
+
+              {/* Existing attachments */}
+              {existingAttachments
+                .filter((a) => !attachmentsToDelete.some((d) => d.path === a.path))
+                .map((att) => (
+                  <div
+                    key={att.path}
+                    className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{att.name}</span>
+                    <span className="ml-auto text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                      type="button"
+                      className="text-destructive hover:text-destructive/80"
+                      onClick={() => setAttachmentsToDelete((prev) => [...prev, att])}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+              {/* Pending files */}
+              {pendingFiles.map((file, idx) => (
+                <div
+                  key={`pending-${idx}`}
+                  className="flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:text-destructive/80"
+                    onClick={() =>
+                      setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -543,12 +670,17 @@ export function TimeTrackingSection({
             <Button
               onClick={handleSave}
               disabled={
+                uploading ||
                 !form.date ||
                 !form.startTime ||
                 (!!form.endTime && calculatedHours <= 0)
               }
             >
-              {editingEntry ? "Save Changes" : "Add Entry"}
+              {uploading
+                ? "Uploading..."
+                : editingEntry
+                  ? "Save Changes"
+                  : "Add Entry"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -576,6 +708,60 @@ export function TimeTrackingSection({
               onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Attachments Dialog */}
+      <Dialog
+        open={viewAttachmentsEntry !== null}
+        onOpenChange={() => setViewAttachmentsEntry(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Receipts</DialogTitle>
+            <DialogDescription>
+              {viewAttachmentsEntry?.attachments?.length ?? 0} receipt(s) attached
+              to this entry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+            {viewAttachmentsEntry?.attachments?.map((att) => {
+              const url = getAttachmentUrl(att.path);
+              return (
+                <div key={att.path} className="flex flex-col gap-2">
+                  <img
+                    src={url}
+                    alt={att.name}
+                    className="w-full rounded-md border object-contain max-h-64"
+                  />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{att.name}</span>
+                    <span className="text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <a
+                      href={url}
+                      download={att.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewAttachmentsEntry(null)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

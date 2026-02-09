@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import type { TimeEntry, Subscription } from "./project-data"
+import type { TimeEntry, Subscription, Attachment } from "./project-data"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -18,6 +18,7 @@ interface TimeEntryRow {
   total_hours: number
   tasks: string
   notes: string
+  attachments: Attachment[]
 }
 
 interface SubscriptionRow {
@@ -41,6 +42,7 @@ function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
     totalHours: Number(row.total_hours),
     tasks: row.tasks,
     notes: row.notes,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
   }
 }
 
@@ -55,6 +57,7 @@ function timeEntryToRow(entry: TimeEntry, clientId: string): Omit<TimeEntryRow, 
     total_hours: entry.totalHours,
     tasks: entry.tasks,
     notes: entry.notes,
+    attachments: entry.attachments ?? [],
   }
 }
 
@@ -149,5 +152,43 @@ export async function seedSubscriptions(subs: Subscription[], clientId: string):
     return row
   })
   const { error } = await supabase.from("subscriptions").insert(rows)
+  if (error) throw error
+}
+
+// ── Attachment Storage ──────────────────────────────────────────────
+
+export async function uploadAttachment(
+  file: File,
+  clientId: string,
+  entryId: string,
+): Promise<Attachment> {
+  const timestamp = Date.now()
+  const path = `${clientId}/${entryId}/${timestamp}-${file.name}`
+
+  const { error } = await supabase.storage.from("receipts").upload(path, file)
+  if (error) throw error
+
+  return {
+    name: file.name,
+    path,
+    size: file.size,
+    uploadedAt: new Date().toISOString(),
+  }
+}
+
+export function getAttachmentUrl(path: string): string {
+  const { data } = supabase.storage.from("receipts").getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function deleteAttachment(path: string): Promise<void> {
+  const { error } = await supabase.storage.from("receipts").remove([path])
+  if (error) throw error
+}
+
+export async function deleteAllAttachments(attachments: Attachment[]): Promise<void> {
+  if (attachments.length === 0) return
+  const paths = attachments.map((a) => a.path)
+  const { error } = await supabase.storage.from("receipts").remove(paths)
   if (error) throw error
 }

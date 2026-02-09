@@ -480,6 +480,14 @@ export const subscriptionCategories = [
   "SEO",
 ]
 
+// ===== Attachments =====
+export interface Attachment {
+  name: string
+  path: string
+  size: number
+  uploadedAt: string
+}
+
 // ===== Time Tracking =====
 export interface TimeEntry {
   id: string
@@ -490,6 +498,7 @@ export interface TimeEntry {
   totalHours: number
   tasks: string
   notes: string
+  attachments: Attachment[]
 }
 
 export const defaultTimeEntries: TimeEntry[] = [
@@ -502,6 +511,7 @@ export const defaultTimeEntries: TimeEntry[] = [
     totalHours: 4.67,
     tasks: "Activated the Yoast SEO plugin. Ran SEO scans on pages. Made text and image updates based on SEO scan findings.",
     notes: "Yoast SEO plugin activated",
+    attachments: [],
   },
   {
     id: "2",
@@ -512,6 +522,7 @@ export const defaultTimeEntries: TimeEntry[] = [
     totalHours: 0.67,
     tasks: "Took baseline screenshots of SEO numbers and enabled further Yoast SEO features.",
     notes: "",
+    attachments: [],
   },
 ]
 

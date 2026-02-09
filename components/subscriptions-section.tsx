@@ -55,7 +55,7 @@ const emptySubscription: Omit<Subscription, "id"> = {
   notes: "",
 }
 
-export function SubscriptionsSection() {
+export function SubscriptionsSection({ editMode = false }: { editMode?: boolean }) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loaded, setLoaded] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -143,10 +143,12 @@ export function SubscriptionsSection() {
               Third-party software and service subscriptions
             </p>
           </div>
-          <Button size="sm" onClick={openAdd} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            Add Subscription
-          </Button>
+          {editMode && (
+            <Button size="sm" onClick={openAdd} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add Subscription
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -160,7 +162,9 @@ export function SubscriptionsSection() {
                   <TableHead>Notes</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Monthly Equiv.</TableHead>
-                  <TableHead className="w-[100px] text-right">Actions</TableHead>
+                  {editMode && (
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,28 +211,30 @@ export function SubscriptionsSection() {
                             : sub.amount / 12
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEdit(sub)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(sub.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {editMode && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(sub)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(sub.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
@@ -251,7 +257,7 @@ export function SubscriptionsSection() {
                         /mo
                       </span>
                     </TableCell>
-                    <TableCell />
+                    {editMode && <TableCell />}
                   </TableRow>
                 </TableFooter>
               )}

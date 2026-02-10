@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS time_entries (
   total_hours NUMERIC(6,2) NOT NULL,
   tasks TEXT NOT NULL DEFAULT '',
   notes TEXT NOT NULL DEFAULT '',
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   amount NUMERIC(10,2) NOT NULL DEFAULT 0,
   renewal_date DATE,
   notes TEXT NOT NULL DEFAULT '',
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -28,18 +30,36 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_client ON time_entries (client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions (client_id);
 
 ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'time_entries' AND policyname = 'Allow all access') THEN
-    CREATE POLICY "Allow all access" ON time_entries FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
-
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'subscriptions' AND policyname = 'Allow all access') THEN
-    CREATE POLICY "Allow all access" ON subscriptions FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+
+-- Drop old permissive policies
+DROP POLICY IF EXISTS "Allow all access" ON time_entries;
+DROP POLICY IF EXISTS "Allow all access" ON subscriptions;
+
+-- Helper functions
+CREATE OR REPLACE FUNCTION public.requesting_client_id() RETURNS TEXT AS $$
+  SELECT coalesce(
+    current_setting('request.jwt.claims', true)::json->'app_metadata'->>'client_id', ''
+  )
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION public.requesting_is_admin() RETURNS BOOLEAN AS $$
+  SELECT coalesce(
+    (current_setting('request.jwt.claims', true)::json->'app_metadata'->>'role') = 'admin', false
+  )
+$$ LANGUAGE sql STABLE;
+
+-- time_entries: admin full access, clients read own
+CREATE POLICY "Admin full access on time_entries" ON time_entries FOR ALL
+  USING (public.requesting_is_admin()) WITH CHECK (public.requesting_is_admin());
+CREATE POLICY "Client read own time_entries" ON time_entries FOR SELECT
+  USING (client_id = public.requesting_client_id());
+
+-- subscriptions: admin full access, clients read own
+CREATE POLICY "Admin full access on subscriptions" ON subscriptions FOR ALL
+  USING (public.requesting_is_admin()) WITH CHECK (public.requesting_is_admin());
+CREATE POLICY "Client read own subscriptions" ON subscriptions FOR SELECT
+  USING (client_id = public.requesting_client_id());
 
 -- Insert time entries
 INSERT INTO time_entries (client_id, date, start_time, end_time, time_range, total_hours, tasks, notes) VALUES

@@ -36,7 +36,7 @@ export default function Page() {
       </main>
       <footer className="relative border-t border-border bg-card py-4 text-center text-muted-foreground">
         <button
-          onClick={() => setEditMode((prev) => !prev)}
+          onClick={() => setEditMode(!editMode)}
           className={`absolute right-4 bottom-1/2 translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
             editMode
               ? "bg-primary"

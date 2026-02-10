@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -21,20 +21,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   type Subscription,
   type Attachment,
   defaultSubscriptions,
   subscriptionCategories,
-} from "@/lib/project-data"
+} from "@/lib/project-data";
 import {
   fetchSubscriptions,
   upsertSubscription,
@@ -44,15 +44,16 @@ import {
   getAttachmentUrl,
   deleteAttachment,
   deleteAllAttachments,
-} from "@/lib/supabase"
-import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react"
+} from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
+import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
-  }).format(n)
+  }).format(n);
 }
 
 const emptySubscription: Omit<Subscription, "id"> = {
@@ -63,71 +64,88 @@ const emptySubscription: Omit<Subscription, "id"> = {
   renewalDate: "",
   notes: "",
   attachments: [],
-}
+};
 
-export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: { editMode?: boolean; clientId?: string }) {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [loaded, setLoaded] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<Omit<Subscription, "id">>(emptySubscription)
-  const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])
-  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([])
-  const [uploading, setUploading] = useState(false)
-  const [viewAttachmentsSub, setViewAttachmentsSub] = useState<Subscription | null>(null)
+export function SubscriptionsSection({
+  editMode = false,
+  clientId = "cygnet",
+}: {
+  editMode?: boolean;
+  clientId?: string;
+}) {
+  const { supabase } = useAuth();
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<Omit<Subscription, "id">>(emptySubscription);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>(
+    [],
+  );
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>(
+    [],
+  );
+  const [uploading, setUploading] = useState(false);
+  const [viewAttachmentsSub, setViewAttachmentsSub] =
+    useState<Subscription | null>(null);
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   // Fetch subscriptions from Supabase on mount / client change
   useEffect(() => {
-    let cancelled = false
-    setLoaded(false)
-    setError(null)
+    let cancelled = false;
+    setLoaded(false);
+    setError(null);
 
     async function load() {
       try {
-        let rows = await fetchSubscriptions(clientId)
-        if (cancelled) return
+        let rows = await fetchSubscriptions(supabase, clientId);
+        if (cancelled) return;
 
         // Seed defaults for the cygnet client on first use
         if (rows.length === 0 && clientId === "cygnet") {
-          await seedSubscriptions(defaultSubscriptions, clientId)
-          rows = await fetchSubscriptions(clientId)
-          if (cancelled) return
+          await seedSubscriptions(supabase, defaultSubscriptions, clientId);
+          rows = await fetchSubscriptions(supabase, clientId);
+          if (cancelled) return;
         }
 
-        setSubscriptions(rows)
+        setSubscriptions(rows);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load subscriptions")
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "Failed to load subscriptions",
+          );
       } finally {
-        if (!cancelled) setLoaded(true)
+        if (!cancelled) setLoaded(true);
       }
     }
 
-    load()
-    return () => { cancelled = true }
-  }, [clientId])
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, supabase]);
 
   const totalMonthly = subscriptions.reduce((sum, s) => {
-    if (s.billingCycle === "monthly") return sum + s.amount
-    return sum + s.amount / 12
-  }, 0)
+    if (s.billingCycle === "monthly") return sum + s.amount;
+    return sum + s.amount / 12;
+  }, 0);
 
-  const totalAnnual = totalMonthly * 12
+  const totalAnnual = totalMonthly * 12;
 
   const openAdd = useCallback(() => {
-    setEditingId(null)
-    setForm(emptySubscription)
-    setPendingFiles([])
-    setExistingAttachments([])
-    setAttachmentsToDelete([])
-    setDialogOpen(true)
-  }, [])
+    setEditingId(null);
+    setForm(emptySubscription);
+    setPendingFiles([]);
+    setExistingAttachments([]);
+    setAttachmentsToDelete([]);
+    setDialogOpen(true);
+  }, []);
 
   const openEdit = useCallback((sub: Subscription) => {
-    setEditingId(sub.id)
+    setEditingId(sub.id);
     setForm({
       name: sub.name,
       category: sub.category,
@@ -136,84 +154,105 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
       renewalDate: sub.renewalDate,
       notes: sub.notes,
       attachments: sub.attachments ?? [],
-    })
-    setPendingFiles([])
-    setExistingAttachments(sub.attachments ?? [])
-    setAttachmentsToDelete([])
-    setDialogOpen(true)
-  }, [])
+    });
+    setPendingFiles([]);
+    setExistingAttachments(sub.attachments ?? []);
+    setAttachmentsToDelete([]);
+    setDialogOpen(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
-    if (!form.name.trim()) return
+    if (!form.name.trim()) return;
 
-    const subId = editingId ?? crypto.randomUUID()
+    const subId = editingId ?? crypto.randomUUID();
 
     try {
-      setUploading(true)
+      setUploading(true);
 
       // Delete attachments marked for removal
       for (const att of attachmentsToDelete) {
-        await deleteAttachment(att.path)
+        await deleteAttachment(supabase, att.path);
       }
 
       // Upload new files
-      const newAttachments: Attachment[] = []
+      const newAttachments: Attachment[] = [];
       for (const file of pendingFiles) {
-        const att = await uploadAttachment(file, clientId, subId)
-        newAttachments.push(att)
+        const att = await uploadAttachment(supabase, file, clientId, subId);
+        newAttachments.push(att);
       }
 
       // Compute final attachments list
       const remainingExisting = existingAttachments.filter(
         (a) => !attachmentsToDelete.some((d) => d.path === a.path),
-      )
-      const finalAttachments = [...remainingExisting, ...newAttachments]
+      );
+      const finalAttachments = [...remainingExisting, ...newAttachments];
 
       if (editingId) {
-        const updated: Subscription = { id: editingId, ...form, attachments: finalAttachments }
+        const updated: Subscription = {
+          id: editingId,
+          ...form,
+          attachments: finalAttachments,
+        };
         setSubscriptions((prev) =>
-          prev.map((s) => (s.id === editingId ? updated : s))
-        )
-        await upsertSubscription(updated, clientId)
+          prev.map((s) => (s.id === editingId ? updated : s)),
+        );
+        await upsertSubscription(supabase, updated, clientId);
       } else {
         const newSub: Subscription = {
           id: subId,
           ...form,
           attachments: finalAttachments,
-        }
-        setSubscriptions((prev) => [...prev, newSub])
-        await upsertSubscription(newSub, clientId)
+        };
+        setSubscriptions((prev) => [...prev, newSub]);
+        await upsertSubscription(supabase, newSub, clientId);
       }
-      setDialogOpen(false)
+      setDialogOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save subscription")
+      setError(
+        err instanceof Error ? err.message : "Failed to save subscription",
+      );
       // Re-fetch to restore consistent state
       try {
-        const rows = await fetchSubscriptions(clientId)
-        setSubscriptions(rows)
-      } catch { /* keep error visible */ }
-    } finally {
-      setUploading(false)
-    }
-  }, [editingId, form, clientId, pendingFiles, existingAttachments, attachmentsToDelete])
-
-  const handleDelete = useCallback(async (id: string) => {
-    const prev = subscriptions
-    const subToDelete = subscriptions.find((s) => s.id === id)
-    setSubscriptions((current) => current.filter((s) => s.id !== id))
-
-    try {
-      if (subToDelete?.attachments?.length) {
-        await deleteAllAttachments(subToDelete.attachments)
+        const rows = await fetchSubscriptions(supabase, clientId);
+        setSubscriptions(rows);
+      } catch {
+        /* keep error visible */
       }
-      await deleteSubscriptionApi(id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete subscription")
-      setSubscriptions(prev)
+    } finally {
+      setUploading(false);
     }
-  }, [subscriptions])
+  }, [
+    editingId,
+    form,
+    clientId,
+    supabase,
+    pendingFiles,
+    existingAttachments,
+    attachmentsToDelete,
+  ]);
 
-  if (!loaded) return null
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const prev = subscriptions;
+      const subToDelete = subscriptions.find((s) => s.id === id);
+      setSubscriptions((current) => current.filter((s) => s.id !== id));
+
+      try {
+        if (subToDelete?.attachments?.length) {
+          await deleteAllAttachments(supabase, subToDelete.attachments);
+        }
+        await deleteSubscriptionApi(supabase, id);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to delete subscription",
+        );
+        setSubscriptions(prev);
+      }
+    },
+    [subscriptions],
+  );
+
+  if (!loaded) return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -221,7 +260,12 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
         <Card className="border-destructive">
           <CardContent className="p-4text-destructive">
             {error}
-            <Button variant="ghost" size="sm" className="ml-2" onClick={() => setError(null)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2"
+              onClick={() => setError(null)}
+            >
               Dismiss
             </Button>
           </CardContent>
@@ -232,9 +276,6 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
             <CardTitle>Software Subscriptions</CardTitle>
-            <p className="mt-1text-muted-foreground">
-              Third-party software and service subscriptions
-            </p>
           </div>
           {editMode && (
             <Button size="sm" onClick={openAdd} className="gap-1.5">
@@ -255,7 +296,9 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                   <TableHead>Notes</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   {editMode && (
-                    <TableHead className="w-[100px] text-right">Actions</TableHead>
+                    <TableHead className="w-[100px] text-right">
+                      Actions
+                    </TableHead>
                   )}
                 </TableRow>
               </TableHeader>
@@ -266,16 +309,14 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                       colSpan={8}
                       className="py-8 text-center text-muted-foreground"
                     >
-                      No subscriptions yet. Click &quot;Add Subscription&quot; to
-                      get started.
+                      No subscriptions yet. Click &quot;Add Subscription&quot;
+                      to get started.
                     </TableCell>
                   </TableRow>
                 ) : (
                   subscriptions.map((sub) => (
                     <TableRow key={sub.id}>
-                      <TableCell className="font-medium">
-                        {sub.name}
-                      </TableCell>
+                      <TableCell className="font-medium">{sub.name}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {sub.category}
                       </TableCell>
@@ -284,7 +325,9 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {sub.renewalDate
-                          ? new Date(sub.renewalDate + "T00:00:00").toLocaleDateString()
+                          ? new Date(
+                              sub.renewalDate + "T00:00:00",
+                            ).toLocaleDateString()
                           : "\u2014"}
                       </TableCell>
                       <TableCell className="max-w-[200px]text-muted-foreground">
@@ -342,7 +385,7 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                     <TableCell colSpan={5} className="font-semibold">
                       Total
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">
+                    <TableCell className="text-right font-mono font-semibold text-primary">
                       {formatCurrency(totalAnnual)}
                       <span className="ml-1 font-normal text-muted-foreground">
                         /yr
@@ -430,7 +473,10 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                   step="0.01"
                   value={form.amount || ""}
                   onChange={(e) =>
-                    setForm({ ...form, amount: Number.parseFloat(e.target.value) || 0 })
+                    setForm({
+                      ...form,
+                      amount: Number.parseFloat(e.target.value) || 0,
+                    })
                   }
                   placeholder="0.00"
                 />
@@ -466,22 +512,24 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                 multiple
                 className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
                 onChange={(e) => {
-                  const files = Array.from(e.target.files ?? [])
+                  const files = Array.from(e.target.files ?? []);
                   const valid = files.filter((f) => {
                     if (f.size > MAX_FILE_SIZE) {
-                      setError(`"${f.name}" exceeds 5 MB limit`)
-                      return false
+                      setError(`"${f.name}" exceeds 5 MB limit`);
+                      return false;
                     }
-                    return true
-                  })
-                  setPendingFiles((prev) => [...prev, ...valid])
-                  e.target.value = ""
+                    return true;
+                  });
+                  setPendingFiles((prev) => [...prev, ...valid]);
+                  e.target.value = "";
                 }}
               />
 
               {/* Existing attachments */}
               {existingAttachments
-                .filter((a) => !attachmentsToDelete.some((d) => d.path === a.path))
+                .filter(
+                  (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+                )
                 .map((att) => (
                   <div
                     key={att.path}
@@ -495,7 +543,9 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                     <button
                       type="button"
                       className="text-destructive hover:text-destructive/80"
-                      onClick={() => setAttachmentsToDelete((prev) => [...prev, att])}
+                      onClick={() =>
+                        setAttachmentsToDelete((prev) => [...prev, att])
+                      }
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -517,7 +567,9 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                     type="button"
                     className="text-destructive hover:text-destructive/80"
                     onClick={() =>
-                      setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                      setPendingFiles((prev) =>
+                        prev.filter((_, i) => i !== idx),
+                      )
                     }
                   >
                     <X className="h-3.5 w-3.5" />
@@ -530,7 +582,10 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={uploading || !form.name.trim()}>
+            <Button
+              onClick={handleSave}
+              disabled={uploading || !form.name.trim()}
+            >
               {uploading
                 ? "Uploading..."
                 : editingId
@@ -556,7 +611,7 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
           </DialogHeader>
           <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
             {viewAttachmentsSub?.attachments?.map((att) => {
-              const url = getAttachmentUrl(att.path)
+              const url = getAttachmentUrl(supabase, att.path);
               return (
                 <div key={att.path} className="flex flex-col gap-2">
                   <img
@@ -581,7 +636,7 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
                     </a>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
           <DialogFooter>
@@ -595,5 +650,5 @@ export function SubscriptionsSection({ editMode = false, clientId = "cygnet" }: 
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

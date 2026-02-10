@@ -1,10 +1,13 @@
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import type { TimeEntry, Subscription, Attachment } from "./project-data"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+}
 
 // ── snake_case ↔ camelCase mappers ──────────────────────────────────
 
@@ -89,9 +92,45 @@ function subscriptionToRow(sub: Subscription, clientId: string): Omit<Subscripti
   }
 }
 
+// ── Cross-client queries (for reports) ──────────────────────────────
+
+export interface TimeEntryWithClient extends TimeEntry {
+  clientId: string
+}
+
+export interface SubscriptionWithClient extends Subscription {
+  clientId: string
+}
+
+export async function fetchAllTimeEntries(supabase: SupabaseClient): Promise<TimeEntryWithClient[]> {
+  const { data, error } = await supabase
+    .from("time_entries")
+    .select("*")
+    .order("date", { ascending: false })
+
+  if (error) throw error
+  return (data as (TimeEntryRow & { client_id: string })[]).map((row) => ({
+    ...rowToTimeEntry(row),
+    clientId: row.client_id,
+  }))
+}
+
+export async function fetchAllSubscriptions(supabase: SupabaseClient): Promise<SubscriptionWithClient[]> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .order("name", { ascending: true })
+
+  if (error) throw error
+  return (data as (SubscriptionRow & { client_id: string })[]).map((row) => ({
+    ...rowToSubscription(row),
+    clientId: row.client_id,
+  }))
+}
+
 // ── Time Entries CRUD ───────────────────────────────────────────────
 
-export async function fetchTimeEntries(clientId: string): Promise<TimeEntry[]> {
+export async function fetchTimeEntries(supabase: SupabaseClient, clientId: string): Promise<TimeEntry[]> {
   const { data, error } = await supabase
     .from("time_entries")
     .select("*")
@@ -102,18 +141,18 @@ export async function fetchTimeEntries(clientId: string): Promise<TimeEntry[]> {
   return (data as TimeEntryRow[]).map(rowToTimeEntry)
 }
 
-export async function upsertTimeEntry(entry: TimeEntry, clientId: string): Promise<void> {
+export async function upsertTimeEntry(supabase: SupabaseClient, entry: TimeEntry, clientId: string): Promise<void> {
   const row = timeEntryToRow(entry, clientId)
   const { error } = await supabase.from("time_entries").upsert(row)
   if (error) throw error
 }
 
-export async function deleteTimeEntry(id: string): Promise<void> {
+export async function deleteTimeEntry(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from("time_entries").delete().eq("id", id)
   if (error) throw error
 }
 
-export async function seedTimeEntries(entries: TimeEntry[], clientId: string): Promise<void> {
+export async function seedTimeEntries(supabase: SupabaseClient, entries: TimeEntry[], clientId: string): Promise<void> {
   const rows = entries.map((e) => {
     const row = timeEntryToRow(e, clientId)
     // Let Supabase generate UUIDs for seeded data
@@ -126,7 +165,7 @@ export async function seedTimeEntries(entries: TimeEntry[], clientId: string): P
 
 // ── Subscriptions CRUD ──────────────────────────────────────────────
 
-export async function fetchSubscriptions(clientId: string): Promise<Subscription[]> {
+export async function fetchSubscriptions(supabase: SupabaseClient, clientId: string): Promise<Subscription[]> {
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
@@ -137,18 +176,18 @@ export async function fetchSubscriptions(clientId: string): Promise<Subscription
   return (data as SubscriptionRow[]).map(rowToSubscription)
 }
 
-export async function upsertSubscription(sub: Subscription, clientId: string): Promise<void> {
+export async function upsertSubscription(supabase: SupabaseClient, sub: Subscription, clientId: string): Promise<void> {
   const row = subscriptionToRow(sub, clientId)
   const { error } = await supabase.from("subscriptions").upsert(row)
   if (error) throw error
 }
 
-export async function deleteSubscription(id: string): Promise<void> {
+export async function deleteSubscription(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from("subscriptions").delete().eq("id", id)
   if (error) throw error
 }
 
-export async function seedSubscriptions(subs: Subscription[], clientId: string): Promise<void> {
+export async function seedSubscriptions(supabase: SupabaseClient, subs: Subscription[], clientId: string): Promise<void> {
   const rows = subs.map((s) => {
     const row = subscriptionToRow(s, clientId)
     delete row.id
@@ -161,6 +200,7 @@ export async function seedSubscriptions(subs: Subscription[], clientId: string):
 // ── Attachment Storage ──────────────────────────────────────────────
 
 export async function uploadAttachment(
+  supabase: SupabaseClient,
   file: File,
   clientId: string,
   entryId: string,
@@ -179,17 +219,17 @@ export async function uploadAttachment(
   }
 }
 
-export function getAttachmentUrl(path: string): string {
+export function getAttachmentUrl(supabase: SupabaseClient, path: string): string {
   const { data } = supabase.storage.from("receipts").getPublicUrl(path)
   return data.publicUrl
 }
 
-export async function deleteAttachment(path: string): Promise<void> {
+export async function deleteAttachment(supabase: SupabaseClient, path: string): Promise<void> {
   const { error } = await supabase.storage.from("receipts").remove([path])
   if (error) throw error
 }
 
-export async function deleteAllAttachments(attachments: Attachment[]): Promise<void> {
+export async function deleteAllAttachments(supabase: SupabaseClient, attachments: Attachment[]): Promise<void> {
   if (attachments.length === 0) return
   const paths = attachments.map((a) => a.path)
   const { error } = await supabase.storage.from("receipts").remove(paths)

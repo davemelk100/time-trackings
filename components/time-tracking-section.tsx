@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ import {
   deleteAttachment,
   deleteAllAttachments,
 } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 const HOURLY_RATE = 62;
@@ -127,6 +128,7 @@ export function TimeTrackingSection({
   editMode?: boolean;
   clientId?: string;
 }) {
+  const { supabase } = useAuth();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,10 +137,15 @@ export function TimeTrackingSection({
   const [form, setForm] = useState<EntryForm>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
-  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>(
+    [],
+  );
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>(
+    [],
+  );
   const [uploading, setUploading] = useState(false);
-  const [viewAttachmentsEntry, setViewAttachmentsEntry] = useState<TimeEntry | null>(null);
+  const [viewAttachmentsEntry, setViewAttachmentsEntry] =
+    useState<TimeEntry | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -152,22 +159,27 @@ export function TimeTrackingSection({
 
     async function load() {
       try {
-        let rows = await fetchTimeEntries(clientId);
+        let rows = await fetchTimeEntries(supabase, clientId);
         if (cancelled) return;
 
         // Seed defaults for the cygnet client on first use
         if (rows.length === 0 && clientId === "cygnet") {
-          await seedTimeEntries(defaultTimeEntries, clientId);
-          rows = await fetchTimeEntries(clientId);
+          await seedTimeEntries(supabase, defaultTimeEntries, clientId);
+          rows = await fetchTimeEntries(supabase, clientId);
           if (cancelled) return;
         }
 
         setEntries(rows);
-      } catch (err) {
-        if (!cancelled)
-          setError(
-            err instanceof Error ? err.message : "Failed to load time entries",
-          );
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : typeof err === "object" && err !== null && "message" in err
+                ? String((err as { message: unknown }).message)
+                : "Failed to load time entries";
+          setError(message);
+        }
       } finally {
         if (!cancelled) setMounted(true);
       }
@@ -177,7 +189,7 @@ export function TimeTrackingSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [clientId, supabase]);
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
   const totalCost = totalHours * HOURLY_RATE;
@@ -223,13 +235,13 @@ export function TimeTrackingSection({
 
       // Delete attachments marked for removal
       for (const att of attachmentsToDelete) {
-        await deleteAttachment(att.path);
+        await deleteAttachment(supabase, att.path);
       }
 
       // Upload new files
       const newAttachments: Attachment[] = [];
       for (const file of pendingFiles) {
-        const att = await uploadAttachment(file, clientId, entryId);
+        const att = await uploadAttachment(supabase, file, clientId, entryId);
         newAttachments.push(att);
       }
 
@@ -255,11 +267,11 @@ export function TimeTrackingSection({
         setEntries((prev) =>
           prev.map((e) => (e.id === editingEntry.id ? updated : e)),
         );
-        await upsertTimeEntry(updated, clientId);
+        await upsertTimeEntry(supabase, updated, clientId);
       } else {
         const newEntry: TimeEntry = { id: entryId, ...entryData };
         setEntries((prev) => [...prev, newEntry]);
-        await upsertTimeEntry(newEntry, clientId);
+        await upsertTimeEntry(supabase, newEntry, clientId);
       }
       setDialogOpen(false);
     } catch (err) {
@@ -267,7 +279,7 @@ export function TimeTrackingSection({
         err instanceof Error ? err.message : "Failed to save time entry",
       );
       try {
-        const rows = await fetchTimeEntries(clientId);
+        const rows = await fetchTimeEntries(supabase, clientId);
         setEntries(rows);
       } catch {
         /* keep error visible */
@@ -286,9 +298,9 @@ export function TimeTrackingSection({
     try {
       // Clean up storage files
       if (entryToDelete?.attachments?.length) {
-        await deleteAllAttachments(entryToDelete.attachments);
+        await deleteAllAttachments(supabase, entryToDelete.attachments);
       }
-      await deleteTimeEntryApi(id);
+      await deleteTimeEntryApi(supabase, id);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to delete time entry",
@@ -360,9 +372,6 @@ export function TimeTrackingSection({
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
             <CardTitle>Time Tracking</CardTitle>
-            <p className="mt-1 text-muted-foreground">
-              Billable hours and task details
-            </p>
           </div>
           {editMode && (
             <Button onClick={openAdd} size="sm">
@@ -622,7 +631,9 @@ export function TimeTrackingSection({
 
               {/* Existing attachments */}
               {existingAttachments
-                .filter((a) => !attachmentsToDelete.some((d) => d.path === a.path))
+                .filter(
+                  (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+                )
                 .map((att) => (
                   <div
                     key={att.path}
@@ -636,7 +647,9 @@ export function TimeTrackingSection({
                     <button
                       type="button"
                       className="text-destructive hover:text-destructive/80"
-                      onClick={() => setAttachmentsToDelete((prev) => [...prev, att])}
+                      onClick={() =>
+                        setAttachmentsToDelete((prev) => [...prev, att])
+                      }
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -658,7 +671,9 @@ export function TimeTrackingSection({
                     type="button"
                     className="text-destructive hover:text-destructive/80"
                     onClick={() =>
-                      setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                      setPendingFiles((prev) =>
+                        prev.filter((_, i) => i !== idx),
+                      )
                     }
                   >
                     <X className="h-3.5 w-3.5" />
@@ -726,13 +741,13 @@ export function TimeTrackingSection({
           <DialogHeader>
             <DialogTitle>Receipts</DialogTitle>
             <DialogDescription>
-              {viewAttachmentsEntry?.attachments?.length ?? 0} receipt(s) attached
-              to this entry.
+              {viewAttachmentsEntry?.attachments?.length ?? 0} receipt(s)
+              attached to this entry.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
             {viewAttachmentsEntry?.attachments?.map((att) => {
-              const url = getAttachmentUrl(att.path);
+              const url = getAttachmentUrl(supabase, att.path);
               return (
                 <div key={att.path} className="flex flex-col gap-2">
                   <img

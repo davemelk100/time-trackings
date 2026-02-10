@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchTimeEntries, fetchSubscriptions } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-context"
 
 const HOURLY_RATE = 62
 
@@ -15,6 +16,7 @@ function formatCurrency(n: number) {
 }
 
 export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }) {
+  const { supabase } = useAuth()
   const [timeCost, setTimeCost] = useState(0)
   const [subscriptionMonthly, setSubscriptionMonthly] = useState(0)
   const [loaded, setLoaded] = useState(false)
@@ -26,8 +28,8 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
     async function load() {
       try {
         const [entries, subs] = await Promise.all([
-          fetchTimeEntries(clientId),
-          fetchSubscriptions(clientId),
+          fetchTimeEntries(supabase, clientId),
+          fetchSubscriptions(supabase, clientId),
         ])
         if (cancelled) return
 
@@ -48,7 +50,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
 
     load()
     return () => { cancelled = true }
-  }, [clientId])
+  }, [clientId, supabase])
 
   if (!loaded) return null
 

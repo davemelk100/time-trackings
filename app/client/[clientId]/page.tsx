@@ -6,6 +6,8 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
+import { Button } from "@/components/ui/button"
+import { Printer } from "lucide-react"
 import { defaultClients } from "@/lib/project-data"
 
 export default function ClientPage() {
@@ -18,6 +20,17 @@ export default function ClientPage() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName={client.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
+        <div className="flex justify-end print:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => window.print()}
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+        </div>
         <TimeTrackingSection editMode={false} clientId={client.id} />
         <SubscriptionsSection editMode={false} clientId={client.id} />
         <GrandTotalSection clientId={client.id} />

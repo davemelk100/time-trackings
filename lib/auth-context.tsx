@@ -1,63 +1,52 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useMemo } from "react"
-import type { SupabaseClient, User } from "@supabase/supabase-js"
+import { createContext, useContext, useMemo } from "react"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase"
 
+interface Session {
+  role: "admin" | "client"
+  clientId: string | null
+}
+
 interface AuthContextValue {
   supabase: SupabaseClient
-  user: User | null
   isAdmin: boolean
   clientId: string | null
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (passcode: string) => Promise<{ error: string | null; role?: string; clientId?: string | null }>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children, session }: { children: React.ReactNode; session: Session | null }) {
   const supabase = useMemo(() => createClient(), [])
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
+  const isAdmin = session?.role === "admin"
+  const clientId = session?.clientId ?? null
+
+  async function signIn(passcode: string) {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode }),
     })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase])
-
-  const isAdmin = user?.app_metadata?.role === "admin"
-  const clientId = (user?.app_metadata?.client_id as string) ?? null
-
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: error.message }
+    const data = await res.json()
+    if (!res.ok) return { error: data.error ?? "Invalid passcode" }
     router.refresh()
-    return { error: null }
+    return { error: null, role: data.role, clientId: data.clientId }
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    await fetch("/api/auth", { method: "DELETE" })
     router.push("/login")
     router.refresh()
   }
 
   return (
-    <AuthContext.Provider value={{ supabase, user, isAdmin, clientId, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ supabase, isAdmin, clientId, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

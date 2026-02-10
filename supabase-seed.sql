@@ -29,38 +29,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE INDEX IF NOT EXISTS idx_time_entries_client ON time_entries (client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions (client_id);
 
-ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Drop old permissive policies
-DROP POLICY IF EXISTS "Allow all access" ON time_entries;
-DROP POLICY IF EXISTS "Allow all access" ON subscriptions;
-
--- Helper functions
-CREATE OR REPLACE FUNCTION public.requesting_client_id() RETURNS TEXT AS $$
-  SELECT coalesce(
-    current_setting('request.jwt.claims', true)::json->'app_metadata'->>'client_id', ''
-  )
-$$ LANGUAGE sql STABLE;
-
-CREATE OR REPLACE FUNCTION public.requesting_is_admin() RETURNS BOOLEAN AS $$
-  SELECT coalesce(
-    (current_setting('request.jwt.claims', true)::json->'app_metadata'->>'role') = 'admin', false
-  )
-$$ LANGUAGE sql STABLE;
-
--- time_entries: admin full access, clients read own
-CREATE POLICY "Admin full access on time_entries" ON time_entries FOR ALL
-  USING (public.requesting_is_admin()) WITH CHECK (public.requesting_is_admin());
-CREATE POLICY "Client read own time_entries" ON time_entries FOR SELECT
-  USING (client_id = public.requesting_client_id());
-
--- subscriptions: admin full access, clients read own
-CREATE POLICY "Admin full access on subscriptions" ON subscriptions FOR ALL
-  USING (public.requesting_is_admin()) WITH CHECK (public.requesting_is_admin());
-CREATE POLICY "Client read own subscriptions" ON subscriptions FOR SELECT
-  USING (client_id = public.requesting_client_id());
-
 -- Insert time entries
 INSERT INTO time_entries (client_id, date, start_time, end_time, time_range, total_hours, tasks, notes) VALUES
 ('cygnet', '2025-02-06', '15:30', '21:25', '3:30 PM - 9:25 PM', 4.67, 'Activated the Yoast SEO plugin. Ran SEO scans on pages. Made text and image updates based on SEO scan findings.', 'Yoast SEO plugin activated'),

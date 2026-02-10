@@ -1,61 +1,68 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createMiddlewareClient } from "@/lib/supabase-server"
 
-export async function middleware(request: NextRequest) {
-  const { supabase, response } = createMiddlewareClient(request)
+interface Session {
+  role: "admin" | "client"
+  clientId: string | null
+}
 
-  // Refresh session (sets cookies on response)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+function getSession(request: NextRequest): Session | null {
+  const raw = request.cookies.get("session")?.value
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as Session
+  } catch {
+    return null
+  }
+}
 
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const session = getSession(request)
+
+  // Allow API routes without auth check
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
 
   // Allow /login for everyone
   if (pathname === "/login") {
-    // If already authenticated, redirect away from login
-    if (user) {
-      const role = user.app_metadata?.role
-      if (role === "admin") {
+    if (session) {
+      if (session.role === "admin") {
         return NextResponse.redirect(new URL("/", request.url))
       }
-      const clientId = user.app_metadata?.client_id
-      if (clientId) {
-        return NextResponse.redirect(new URL(`/client/${clientId}`, request.url))
+      if (session.clientId) {
+        return NextResponse.redirect(new URL(`/client/${session.clientId}`, request.url))
       }
     }
-    return response
+    return NextResponse.next()
   }
 
   // Unauthenticated → /login
-  if (!user) {
+  if (!session) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  const role = user.app_metadata?.role
-  const clientId = user.app_metadata?.client_id as string | undefined
-
   // Admin gets full access
-  if (role === "admin") {
-    return response
+  if (session.role === "admin") {
+    return NextResponse.next()
   }
 
   // Client restrictions
-  if (role === "client" && clientId) {
+  if (session.role === "client" && session.clientId) {
     // Block admin-only routes
     if (pathname === "/" || pathname === "/reports") {
-      return NextResponse.redirect(new URL(`/client/${clientId}`, request.url))
+      return NextResponse.redirect(new URL(`/client/${session.clientId}`, request.url))
     }
 
     // Block access to other clients' pages
     if (pathname.startsWith("/client/")) {
       const urlClientId = pathname.split("/")[2]
-      if (urlClientId !== clientId) {
-        return NextResponse.redirect(new URL(`/client/${clientId}`, request.url))
+      if (urlClientId !== session.clientId) {
+        return NextResponse.redirect(new URL(`/client/${session.clientId}`, request.url))
       }
     }
 
-    return response
+    return NextResponse.next()
   }
 
   // Unknown role → login

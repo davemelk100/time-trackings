@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,8 +10,8 @@ import { useAuth } from "@/lib/auth-context"
 
 export default function LoginPage() {
   const { signIn } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const router = useRouter()
+  const [passcode, setPasscode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -19,10 +20,16 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error: signInError } = await signIn(email, password)
-    if (signInError) {
-      setError(signInError)
+    const result = await signIn(passcode)
+    if (result.error) {
+      setError(result.error)
       setLoading(false)
+    } else {
+      if (result.role === "admin") {
+        router.push("/")
+      } else if (result.clientId) {
+        router.push(`/client/${result.clientId}`)
+      }
     }
   }
 
@@ -38,26 +45,17 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="passcode">Passcode</Label>
               <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
+                id="passcode"
                 type="password"
-                autoComplete="current-password"
+                inputMode="numeric"
+                maxLength={5}
+                autoComplete="off"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                placeholder="Enter 5-digit passcode"
               />
             </div>
             {error && (

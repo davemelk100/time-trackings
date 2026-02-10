@@ -1,6 +1,7 @@
 import React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
+import { cookies } from "next/headers"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 
@@ -25,11 +26,22 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieStore = await cookies()
+  const raw = cookieStore.get("session")?.value
+  let session = null
+  if (raw) {
+    try {
+      session = JSON.parse(raw)
+    } catch {
+      // invalid cookie — treat as unauthenticated
+    }
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -41,7 +53,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
+          <AuthProvider session={session}>
             {children}
           </AuthProvider>
         </ThemeProvider>

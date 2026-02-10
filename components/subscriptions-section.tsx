@@ -508,7 +508,7 @@ export function SubscriptionsSection({
               <Label>Receipts</Label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.pdf,application/pdf"
                 multiple
                 className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
                 onChange={(e) => {
@@ -614,11 +614,19 @@ export function SubscriptionsSection({
               const url = getAttachmentUrl(supabase, att.path);
               return (
                 <div key={att.path} className="flex flex-col gap-2">
-                  <img
-                    src={url}
-                    alt={att.name}
-                    className="w-full rounded-md border object-contain max-h-64"
-                  />
+                  {att.name.toLowerCase().endsWith(".pdf") ? (
+                    <iframe
+                      src={url}
+                      title={att.name}
+                      className="w-full rounded-md border h-64"
+                    />
+                  ) : (
+                    <img
+                      src={url}
+                      alt={att.name}
+                      className="w-full rounded-md border object-contain max-h-64"
+                    />
+                  )}
                   <div className="flex items-center gap-2 text-sm">
                     <span className="truncate font-medium">{att.name}</span>
                     <span className="text-muted-foreground">

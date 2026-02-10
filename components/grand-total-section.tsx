@@ -58,7 +58,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
   const grandTotal = timeCost + subscriptionAnnual
 
   return (
-    <Card className="max-w-[50%] ml-auto">
+    <Card className="ml-auto sm:max-w-[50%]">
       <CardHeader>
         <CardTitle>Grand Total</CardTitle>
       </CardHeader>

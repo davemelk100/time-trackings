@@ -22,7 +22,9 @@ export default function ClientPage() {
         <SubscriptionsSection editMode={false} clientId={client.id} />
         <GrandTotalSection clientId={client.id} />
       </main>
-      <footer className="border-t border-border bg-card py-4 text-center text-muted-foreground" />
+      <footer className="border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
+        Melkonian Industries LLC
+      </footer>
     </div>
   )
 }

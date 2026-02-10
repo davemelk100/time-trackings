@@ -53,9 +53,6 @@ export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientNam
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:block">
-            Melkonian Industries LLC
-          </span>
           {mounted && (
             <Button
               variant="outline"

@@ -441,6 +441,7 @@ export function ReportsSection() {
           <CardTitle>Time Entries</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -521,6 +522,7 @@ export function ReportsSection() {
               </TableFooter>
             )}
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -530,6 +532,7 @@ export function ReportsSection() {
           <CardTitle>Software Subscriptions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -611,11 +614,12 @@ export function ReportsSection() {
               </TableFooter>
             )}
           </Table>
+          </div>
         </CardContent>
       </Card>
 
       {/* Grand Total */}
-      <Card className="max-w-[50%] ml-auto">
+      <Card className="ml-auto sm:max-w-[50%]">
         <CardHeader>
           <CardTitle>Total</CardTitle>
         </CardHeader>

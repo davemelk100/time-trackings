@@ -340,11 +340,11 @@ export function TimeTrackingSection({
       {/* Meta info */}
       <Card>
         <CardHeader>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-2">
               <CardTitle>Invoice Details</CardTitle>
             </div>
-            <div className="flex flex-col gap-0.5 items-center text-center">
+            <div className="flex flex-col gap-0.5 sm:items-center sm:text-center">
               <span className="text-muted-foreground">Payable To</span>
               <span className="font-medium">{timeTrackingMeta.payableTo}</span>
               <span className="text-muted-foreground">
@@ -353,15 +353,13 @@ export function TimeTrackingSection({
                 Waterford, MI 48329
               </span>
             </div>
-            <div className="flex flex-col gap-0.5 items-center text-center">
+            <div className="flex flex-col gap-0.5 sm:items-center sm:text-center">
               <span className="text-muted-foreground">Venmo</span>
               <span className="font-medium">@MelkonianLLC</span>
             </div>
-            <div className="flex justify-end">
-              <div className="flex flex-col gap-0.5 text-center">
-                <span className="text-muted-foreground">Reporting Period</span>
-                <span className="font-medium">{getReportingPeriod()}</span>
-              </div>
+            <div className="flex flex-col gap-0.5 sm:text-center lg:items-end lg:text-right">
+              <span className="text-muted-foreground">Reporting Period</span>
+              <span className="font-medium">{getReportingPeriod()}</span>
             </div>
           </div>
         </CardHeader>
@@ -381,6 +379,7 @@ export function TimeTrackingSection({
           )}
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -494,6 +493,7 @@ export function TimeTrackingSection({
               </TableFooter>
             )}
           </Table>
+          </div>
         </CardContent>
       </Card>
 

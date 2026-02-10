@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "Melkonian Industries - Time Tracking",
   description:
     "Time tracking and invoicing dashboard for Melkonian Industries LLC.",
+  icons: { icon: "/favicon.svg" },
 }
 
 export const viewport: Viewport = {

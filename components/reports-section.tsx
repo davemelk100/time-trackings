@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,32 +13,32 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { ArrowUp, ArrowDown, X, Printer } from "lucide-react"
-import { defaultClients } from "@/lib/project-data"
+} from "@/components/ui/select";
+import { ArrowUp, ArrowDown, X, Printer } from "lucide-react";
+import { defaultClients } from "@/lib/project-data";
 import {
   fetchAllTimeEntries,
   fetchAllSubscriptions,
   type TimeEntryWithClient,
   type SubscriptionWithClient,
-} from "@/lib/supabase"
-import { useAuth } from "@/lib/auth-context"
+} from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 
-const HOURLY_RATE = 62
+const HOURLY_RATE = 62;
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
-  }).format(n)
+  }).format(n);
 }
 
 function formatDate(dateStr: string) {
@@ -46,208 +46,209 @@ function formatDate(dateStr: string) {
     month: "short",
     day: "numeric",
     year: "numeric",
-  })
+  });
 }
 
 function getClientName(clientId: string): string {
-  return defaultClients.find((c) => c.id === clientId)?.name ?? clientId
+  return defaultClients.find((c) => c.id === clientId)?.name ?? clientId;
 }
 
-type TimeSortKey = "date" | "hours" | "cost"
-type SubSortKey = "name" | "category" | "amount"
-type SortDir = "asc" | "desc"
+type TimeSortKey = "date" | "hours" | "cost";
+type SubSortKey = "name" | "category" | "amount";
+type SortDir = "asc" | "desc";
 
 export function ReportsSection() {
-  const { supabase } = useAuth()
-  const [entries, setEntries] = useState<TimeEntryWithClient[]>([])
-  const [subscriptions, setSubscriptions] = useState<SubscriptionWithClient[]>([])
-  const [mounted, setMounted] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { supabase } = useAuth();
+  const [entries, setEntries] = useState<TimeEntryWithClient[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionWithClient[]>(
+    [],
+  );
+  const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [clientFilter, setClientFilter] = useState("all")
-  const [monthFilter, setMonthFilter] = useState("all")
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
-  const [search, setSearch] = useState("")
+  const [clientFilter, setClientFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
 
   // Sort — time entries
-  const [timeSortKey, setTimeSortKey] = useState<TimeSortKey>("date")
-  const [timeSortDir, setTimeSortDir] = useState<SortDir>("desc")
+  const [timeSortKey, setTimeSortKey] = useState<TimeSortKey>("date");
+  const [timeSortDir, setTimeSortDir] = useState<SortDir>("desc");
 
   // Sort — subscriptions
-  const [subSortKey, setSubSortKey] = useState<SubSortKey>("name")
-  const [subSortDir, setSubSortDir] = useState<SortDir>("asc")
+  const [subSortKey, setSubSortKey] = useState<SubSortKey>("name");
+  const [subSortDir, setSubSortDir] = useState<SortDir>("asc");
 
   useEffect(() => {
-    let cancelled = false
-    setMounted(false)
-    setError(null)
+    let cancelled = false;
+    setMounted(false);
+    setError(null);
 
     async function load() {
       try {
         const [timeRows, subRows] = await Promise.all([
           fetchAllTimeEntries(supabase),
           fetchAllSubscriptions(supabase),
-        ])
-        if (cancelled) return
-        setEntries(timeRows)
-        setSubscriptions(subRows)
+        ]);
+        if (cancelled) return;
+        setEntries(timeRows);
+        setSubscriptions(subRows);
       } catch (err) {
         if (!cancelled)
-          setError(
-            err instanceof Error ? err.message : "Failed to load data"
-          )
+          setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
-        if (!cancelled) setMounted(true)
+        if (!cancelled) setMounted(true);
       }
     }
 
-    load()
+    load();
     return () => {
-      cancelled = true
-    }
-  }, [supabase])
+      cancelled = true;
+    };
+  }, [supabase]);
 
   // Derive available months from entries
   const availableMonths = useMemo(() => {
-    const months = new Set<string>()
+    const months = new Set<string>();
     for (const e of entries) {
-      months.add(e.date.slice(0, 7))
+      months.add(e.date.slice(0, 7));
     }
-    return Array.from(months).sort().reverse()
-  }, [entries])
+    return Array.from(months).sort().reverse();
+  }, [entries]);
 
   const hasActiveFilter =
     clientFilter !== "all" ||
     monthFilter !== "all" ||
     dateFrom !== "" ||
     dateTo !== "" ||
-    search !== ""
+    search !== "";
 
   function clearFilters() {
-    setClientFilter("all")
-    setMonthFilter("all")
-    setDateFrom("")
-    setDateTo("")
-    setSearch("")
+    setClientFilter("all");
+    setMonthFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setSearch("");
   }
 
   // Filtered time entries
   const filteredEntries = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search.toLowerCase();
     return entries.filter((e) => {
-      if (clientFilter !== "all" && e.clientId !== clientFilter) return false
-      if (monthFilter !== "all" && !e.date.startsWith(monthFilter)) return false
-      if (dateFrom && e.date < dateFrom) return false
-      if (dateTo && e.date > dateTo) return false
+      if (clientFilter !== "all" && e.clientId !== clientFilter) return false;
+      if (monthFilter !== "all" && !e.date.startsWith(monthFilter))
+        return false;
+      if (dateFrom && e.date < dateFrom) return false;
+      if (dateTo && e.date > dateTo) return false;
       if (
         q &&
         !e.tasks.toLowerCase().includes(q) &&
         !e.notes.toLowerCase().includes(q)
       )
-        return false
-      return true
-    })
-  }, [entries, clientFilter, monthFilter, dateFrom, dateTo, search])
+        return false;
+      return true;
+    });
+  }, [entries, clientFilter, monthFilter, dateFrom, dateTo, search]);
 
   // Filtered subscriptions (client + search only; date/month don't apply)
   const filteredSubs = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search.toLowerCase();
     return subscriptions.filter((s) => {
-      if (clientFilter !== "all" && s.clientId !== clientFilter) return false
+      if (clientFilter !== "all" && s.clientId !== clientFilter) return false;
       if (
         q &&
         !s.name.toLowerCase().includes(q) &&
         !s.category.toLowerCase().includes(q) &&
         !s.notes.toLowerCase().includes(q)
       )
-        return false
-      return true
-    })
-  }, [subscriptions, clientFilter, search])
+        return false;
+      return true;
+    });
+  }, [subscriptions, clientFilter, search]);
 
   // Sorted time entries
   const sortedEntries = useMemo(() => {
-    const copy = [...filteredEntries]
+    const copy = [...filteredEntries];
     copy.sort((a, b) => {
-      let cmp = 0
+      let cmp = 0;
       if (timeSortKey === "date") {
-        cmp = a.date.localeCompare(b.date)
+        cmp = a.date.localeCompare(b.date);
       } else if (timeSortKey === "hours") {
-        cmp = a.totalHours - b.totalHours
+        cmp = a.totalHours - b.totalHours;
       } else {
-        cmp = a.totalHours * HOURLY_RATE - b.totalHours * HOURLY_RATE
+        cmp = a.totalHours * HOURLY_RATE - b.totalHours * HOURLY_RATE;
       }
-      return timeSortDir === "asc" ? cmp : -cmp
-    })
-    return copy
-  }, [filteredEntries, timeSortKey, timeSortDir])
+      return timeSortDir === "asc" ? cmp : -cmp;
+    });
+    return copy;
+  }, [filteredEntries, timeSortKey, timeSortDir]);
 
   // Sorted subscriptions
   const sortedSubs = useMemo(() => {
-    const copy = [...filteredSubs]
+    const copy = [...filteredSubs];
     copy.sort((a, b) => {
-      let cmp = 0
+      let cmp = 0;
       if (subSortKey === "name") {
-        cmp = a.name.localeCompare(b.name)
+        cmp = a.name.localeCompare(b.name);
       } else if (subSortKey === "category") {
-        cmp = a.category.localeCompare(b.category)
+        cmp = a.category.localeCompare(b.category);
       } else {
         // Compare annualized amounts
-        const aAnnual = a.billingCycle === "monthly" ? a.amount * 12 : a.amount
-        const bAnnual = b.billingCycle === "monthly" ? b.amount * 12 : b.amount
-        cmp = aAnnual - bAnnual
+        const aAnnual = a.billingCycle === "monthly" ? a.amount * 12 : a.amount;
+        const bAnnual = b.billingCycle === "monthly" ? b.amount * 12 : b.amount;
+        cmp = aAnnual - bAnnual;
       }
-      return subSortDir === "asc" ? cmp : -cmp
-    })
-    return copy
-  }, [filteredSubs, subSortKey, subSortDir])
+      return subSortDir === "asc" ? cmp : -cmp;
+    });
+    return copy;
+  }, [filteredSubs, subSortKey, subSortDir]);
 
   // Summary stats
-  const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0)
-  const totalTimeCost = totalHours * HOURLY_RATE
+  const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
+  const totalTimeCost = totalHours * HOURLY_RATE;
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
-    if (s.billingCycle === "monthly") return sum + s.amount
-    return sum + s.amount / 12
-  }, 0)
-  const totalSubsAnnual = totalSubsMonthly * 12
+    if (s.billingCycle === "monthly") return sum + s.amount;
+    return sum + s.amount / 12;
+  }, 0);
+  const totalSubsAnnual = totalSubsMonthly * 12;
 
   function toggleTimeSort(key: TimeSortKey) {
     if (timeSortKey === key) {
-      setTimeSortDir((d) => (d === "asc" ? "desc" : "asc"))
+      setTimeSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
-      setTimeSortKey(key)
-      setTimeSortDir("desc")
+      setTimeSortKey(key);
+      setTimeSortDir("desc");
     }
   }
 
   function toggleSubSort(key: SubSortKey) {
     if (subSortKey === key) {
-      setSubSortDir((d) => (d === "asc" ? "desc" : "asc"))
+      setSubSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
-      setSubSortKey(key)
-      setSubSortDir(key === "amount" ? "desc" : "asc")
+      setSubSortKey(key);
+      setSubSortDir(key === "amount" ? "desc" : "asc");
     }
   }
 
   function TimeSortIndicator({ column }: { column: TimeSortKey }) {
-    if (timeSortKey !== column) return null
+    if (timeSortKey !== column) return null;
     return timeSortDir === "asc" ? (
       <ArrowUp className="inline h-3 w-3 ml-1" />
     ) : (
       <ArrowDown className="inline h-3 w-3 ml-1" />
-    )
+    );
   }
 
   function SubSortIndicator({ column }: { column: SubSortKey }) {
-    if (subSortKey !== column) return null
+    if (subSortKey !== column) return null;
     return subSortDir === "asc" ? (
       <ArrowUp className="inline h-3 w-3 ml-1" />
     ) : (
       <ArrowDown className="inline h-3 w-3 ml-1" />
-    )
+    );
   }
 
   if (!mounted) {
@@ -257,7 +258,7 @@ export function ReportsSection() {
           Loading reports...
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -385,19 +386,19 @@ export function ReportsSection() {
                 <SelectContent>
                   <SelectItem value="all">All Months</SelectItem>
                   {availableMonths.map((m) => {
-                    const [y, mo] = m.split("-")
+                    const [y, mo] = m.split("-");
                     const label = new Date(
                       Number(y),
-                      Number(mo) - 1
+                      Number(mo) - 1,
                     ).toLocaleDateString("en-US", {
                       month: "long",
                       year: "numeric",
-                    })
+                    });
                     return (
                       <SelectItem key={m} value={m}>
                         {label}
                       </SelectItem>
-                    )
+                    );
                   })}
                 </SelectContent>
               </Select>
@@ -582,9 +583,7 @@ export function ReportsSection() {
                       {sub.billingCycle}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {sub.renewalDate
-                        ? formatDate(sub.renewalDate)
-                        : "\u2014"}
+                      {sub.renewalDate ? formatDate(sub.renewalDate) : "\u2014"}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(sub.amount)}
@@ -618,7 +617,7 @@ export function ReportsSection() {
       {/* Grand Total */}
       <Card className="max-w-[50%] ml-auto">
         <CardHeader>
-          <CardTitle>Grand Total</CardTitle>
+          <CardTitle>Total</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex justify-end">
@@ -626,11 +625,15 @@ export function ReportsSection() {
               <div className="flex flex-col gap-0.5 items-end text-muted-foreground">
                 <div className="flex items-baseline gap-2">
                   <span>Time Tracking</span>
-                  <span className="font-mono">{formatCurrency(totalTimeCost)}</span>
+                  <span className="font-mono">
+                    {formatCurrency(totalTimeCost)}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span>Subscriptions</span>
-                  <span className="font-mono">{formatCurrency(totalSubsAnnual)}</span>
+                  <span className="font-mono">
+                    {formatCurrency(totalSubsAnnual)}
+                  </span>
                 </div>
               </div>
               <div className="mt-1 border-t border-border pt-1 w-full text-right">
@@ -643,5 +646,5 @@ export function ReportsSection() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -9,8 +9,8 @@ interface SessionPayload {
 const PASSCODE_MAP: Record<string, SessionPayload> = {
   PASSCODE_ADMIN: { role: "admin", clientId: null },
   PASSCODE_CYGNET: { role: "client", clientId: "cygnet" },
-  PASSCODE_MINDFLIP: { role: "client", clientId: "mindflip" },
-  PASSCODE_CLIENT_C: { role: "client", clientId: "client_c" },
+  PASSCODE_MINDFLIP: { role: "client", clientId: "client-b" },
+  PASSCODE_CLIENT_C: { role: "client", clientId: "client-c" },
 }
 
 function matchPasscode(passcode: string): SessionPayload | null {

@@ -13,7 +13,7 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null, refreshKey = 0 }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null; refreshKey?: number }) {
+export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null, refreshKey = 0, hidePayables = false }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null; refreshKey?: number; hidePayables?: boolean }) {
   const { supabase } = useAuth()
   const HOURLY_RATE = hourlyRate
   const FLAT_RATE = flatRate
@@ -61,10 +61,11 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
 
   const subscriptionAnnual = subscriptionMonthly * 12
   const isNextier = clientId === "nextier"
+  const effectivePayables = hidePayables ? 0 : payablesPaid
   const subtotal = timeCost != null ? timeCost + subscriptionAnnual : null
   const grandTotal = isNextier
-    ? payablesPaid
-    : subtotal != null ? subtotal - payablesPaid : null
+    ? effectivePayables
+    : subtotal != null ? subtotal - effectivePayables : null
 
   return (
     <Card className="ml-auto sm:max-w-[50%]">
@@ -87,7 +88,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
                     <span className="font-mono">{formatCurrency(subscriptionAnnual)}</span>
                   </div>
                 )}
-                {payablesPaid > 0 && (
+                {!hidePayables && payablesPaid > 0 && (
                   <div className="flex items-baseline gap-2">
                     <span>{clientId === "nextier" ? "Proceeds" : "Payables"}</span>
                     <span className="font-mono">{clientId === "nextier" ? "" : "\u2212"}{formatCurrency(payablesPaid)}</span>

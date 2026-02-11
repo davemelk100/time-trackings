@@ -65,8 +65,10 @@ export default function ClientPage() {
             <SubscriptionsSection editMode={false} clientId={client.id} />
           </>
         )}
-        <PayablesSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
-        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={payablesKey} />
+        {client.id === "nextier" && (
+          <PayablesSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
+        )}
+        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={payablesKey} hidePayables={client.id !== "nextier"} />
       </main>
       <DashboardFooter />
     </div>

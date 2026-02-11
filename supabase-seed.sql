@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS clients (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  hourly_rate NUMERIC(10,2),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_time_entries_client ON time_entries (client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions (client_id);
 
@@ -42,3 +49,9 @@ INSERT INTO subscriptions (client_id, name, category, billing_cycle, amount, ren
 ('cygnet', 'Stripe', 'Stripe', 'monthly', 0.00, NULL, 'Pay-per-transaction, no fixed subscription'),
 ('cygnet', 'PostHog', 'Analytics & Monitoring', 'monthly', 0.00, NULL, 'Free tier for analytics'),
 ('cygnet', 'Yoast SEO', 'SEO', 'annual', 118.80, '2026-02-06', 'SEO plugin for WordPress');
+
+-- Insert clients
+INSERT INTO clients (id, name, hourly_rate) VALUES
+('cygnet', 'Cygnet Institute', 62),
+('client-b', 'Mind Flip', 50),
+('client-c', 'A. Lawrence', NULL);

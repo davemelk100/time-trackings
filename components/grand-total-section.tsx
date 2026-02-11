@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchTimeEntries, fetchSubscriptions } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
-import { getHourlyRate } from "@/lib/project-data"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -14,9 +13,9 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }) {
+export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null }: { clientId?: string; hourlyRate?: number | null }) {
   const { supabase } = useAuth()
-  const HOURLY_RATE = getHourlyRate(clientId)
+  const HOURLY_RATE = hourlyRate
   const [timeCost, setTimeCost] = useState<number | null>(0)
   const [subscriptionMonthly, setSubscriptionMonthly] = useState(0)
   const [loaded, setLoaded] = useState(false)

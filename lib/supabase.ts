@@ -1,11 +1,55 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { TimeEntry, Subscription, Attachment } from "./project-data"
+import type { TimeEntry, Subscription, Attachment, Client } from "./project-data"
 
 export function createClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
+}
+
+// ── Clients CRUD ────────────────────────────────────────────────────
+
+interface ClientRow {
+  id: string
+  name: string
+  hourly_rate: number | null
+  created_at: string
+}
+
+function rowToClient(row: ClientRow): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    hourlyRate: row.hourly_rate != null ? Number(row.hourly_rate) : null,
+  }
+}
+
+export async function fetchClients(supabase: SupabaseClient): Promise<Client[]> {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .order("name", { ascending: true })
+
+  if (error) throw error
+  return (data as ClientRow[]).map(rowToClient)
+}
+
+export async function insertClient(
+  supabase: SupabaseClient,
+  client: { id: string; name: string; hourlyRate: number | null },
+): Promise<void> {
+  const { error } = await supabase.from("clients").insert({
+    id: client.id,
+    name: client.name,
+    hourly_rate: client.hourlyRate,
+  })
+  if (error) throw error
+}
+
+export async function deleteClient(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("clients").delete().eq("id", id)
+  if (error) throw error
 }
 
 // ── snake_case ↔ camelCase mappers ──────────────────────────────────

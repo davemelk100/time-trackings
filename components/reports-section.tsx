@@ -22,10 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowUp, ArrowDown, X, Printer } from "lucide-react";
-import { defaultClients, getHourlyRate } from "@/lib/project-data";
+import { type Client, defaultClients } from "@/lib/project-data";
 import {
   fetchAllTimeEntries,
   fetchAllSubscriptions,
+  fetchClients,
   type TimeEntryWithClient,
   type SubscriptionWithClient,
 } from "@/lib/supabase";
@@ -49,16 +50,13 @@ function formatDate(dateStr: string) {
   });
 }
 
-function getClientName(clientId: string): string {
-  return defaultClients.find((c) => c.id === clientId)?.name ?? clientId;
-}
-
 type TimeSortKey = "date" | "hours" | "cost";
 type SubSortKey = "name" | "category" | "amount";
 type SortDir = "asc" | "desc";
 
 export function ReportsSection() {
   const { supabase } = useAuth();
+  const [clients, setClients] = useState<Client[]>([]);
   const [entries, setEntries] = useState<TimeEntryWithClient[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionWithClient[]>(
     [],
@@ -88,16 +86,20 @@ export function ReportsSection() {
 
     async function load() {
       try {
-        const [timeRows, subRows] = await Promise.all([
+        const [clientRows, timeRows, subRows] = await Promise.all([
+          fetchClients(supabase),
           fetchAllTimeEntries(supabase),
           fetchAllSubscriptions(supabase),
         ]);
         if (cancelled) return;
+        setClients(clientRows.length > 0 ? clientRows : defaultClients);
         setEntries(timeRows);
         setSubscriptions(subRows);
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
+          setClients(defaultClients);
           setError(err instanceof Error ? err.message : "Failed to load data");
+        }
       } finally {
         if (!cancelled) setMounted(true);
       }
@@ -108,6 +110,27 @@ export function ReportsSection() {
       cancelled = true;
     };
   }, [supabase]);
+
+  // Build client lookup maps
+  const clientNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of clients) map[c.id] = c.name;
+    return map;
+  }, [clients]);
+
+  const clientRateMap = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    for (const c of clients) map[c.id] = c.hourlyRate;
+    return map;
+  }, [clients]);
+
+  function getClientName(clientId: string): string {
+    return clientNameMap[clientId] ?? clientId;
+  }
+
+  function getRate(clientId: string): number | null {
+    return clientRateMap[clientId] ?? null;
+  }
 
   // Derive available months from entries
   const availableMonths = useMemo(() => {
@@ -178,7 +201,7 @@ export function ReportsSection() {
       } else if (timeSortKey === "hours") {
         cmp = a.totalHours - b.totalHours;
       } else {
-        cmp = a.totalHours * (getHourlyRate(a.clientId) ?? 0) - b.totalHours * (getHourlyRate(b.clientId) ?? 0);
+        cmp = a.totalHours * (getRate(a.clientId) ?? 0) - b.totalHours * (getRate(b.clientId) ?? 0);
       }
       return timeSortDir === "asc" ? cmp : -cmp;
     });
@@ -207,7 +230,7 @@ export function ReportsSection() {
 
   // Summary stats
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalTimeCost = filteredEntries.reduce((sum, e) => sum + e.totalHours * (getHourlyRate(e.clientId) ?? 0), 0);
+  const totalTimeCost = filteredEntries.reduce((sum, e) => sum + e.totalHours * (getRate(e.clientId) ?? 0), 0);
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -368,7 +391,7 @@ export function ReportsSection() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Clients</SelectItem>
-                  {defaultClients.map((c) => (
+                  {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
@@ -500,8 +523,8 @@ export function ReportsSection() {
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
-                      {getHourlyRate(entry.clientId) != null
-                        ? formatCurrency(entry.totalHours * getHourlyRate(entry.clientId)!)
+                      {getRate(entry.clientId) != null
+                        ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
                         : "TBD"}
                     </TableCell>
                   </TableRow>

@@ -394,13 +394,13 @@ export const clientResponses = {
 export interface Client {
   id: string
   name: string
-  storageKeyPrefix: string
+  hourlyRate: number | null
 }
 
 export const defaultClients: Client[] = [
-  { id: "cygnet", name: "Cygnet Institute", storageKeyPrefix: "cygnet" },
-  { id: "client-b", name: "Mind Flip", storageKeyPrefix: "client-b" },
-  { id: "client-c", name: "A. Lawrence", storageKeyPrefix: "client-c" },
+  { id: "cygnet", name: "Cygnet Institute", hourlyRate: 62 },
+  { id: "client-b", name: "Mind Flip", hourlyRate: 50 },
+  { id: "client-c", name: "A. Lawrence", hourlyRate: null },
 ]
 
 // ===== Software Subscriptions =====
@@ -539,13 +539,3 @@ export const timeTrackingMeta = {
   reportingPeriod: "Feb 1 - Feb 27",
 }
 
-export const hourlyRates: Record<string, number | null> = {
-  cygnet: 62,
-  "client-b": 50,
-  "client-c": null,
-}
-
-export function getHourlyRate(clientId: string): number | null {
-  const rate = hourlyRates[clientId]
-  return rate === undefined ? 62 : rate
-}

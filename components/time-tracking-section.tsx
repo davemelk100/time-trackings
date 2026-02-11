@@ -35,7 +35,6 @@ import {
   type Attachment,
   defaultTimeEntries,
   timeTrackingMeta,
-  getHourlyRate,
 } from "@/lib/project-data";
 import {
   fetchTimeEntries,
@@ -124,12 +123,14 @@ const emptyForm: EntryForm = {
 export function TimeTrackingSection({
   editMode = false,
   clientId = "cygnet",
+  hourlyRate = null,
 }: {
   editMode?: boolean;
   clientId?: string;
+  hourlyRate?: number | null;
 }) {
   const { supabase } = useAuth();
-  const HOURLY_RATE = getHourlyRate(clientId);
+  const HOURLY_RATE = hourlyRate;
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);

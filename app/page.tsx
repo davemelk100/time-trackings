@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
+import { PayablesSection } from "@/components/payables-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -17,11 +18,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Printer, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
+import { DashboardFooter } from "@/components/dashboard-footer"
 import { type Client, defaultClients } from "@/lib/project-data"
 import { fetchClients, insertClient } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
-import { handlePrint } from "@/lib/print"
 
 
 export default function Page() {
@@ -139,36 +140,27 @@ export default function Page() {
             </Button>
           </div>
           <span className="hidden print:block text-lg font-semibold">{activeClient?.name}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 print:hidden shrink-0"
-            onClick={handlePrint}
-          >
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
         </div>
         {activeClient && (
           <>
             <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
             <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
+            <PayablesSection editMode={editMode} clientId={activeClient.id} />
             <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
           </>
         )}
       </main>
-      <footer className="relative border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
-        Melkonian Industries LLC
+      <DashboardFooter>
         <button
           onClick={() => setEditMode(!editMode)}
-          className={`absolute right-4 bottom-1/2 translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
+          className={`absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
             editMode
               ? "bg-primary"
               : "bg-card"
           }`}
           aria-label={editMode ? "Disable editing" : "Enable editing"}
         />
-      </footer>
+      </DashboardFooter>
 
       {/* Add Client Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

@@ -404,6 +404,17 @@ export const defaultClients: Client[] = [
   { id: "client-c", name: "A. Lawrence", hourlyRate: null, flatRate: null },
 ]
 
+// ===== Payables =====
+export interface Payable {
+  id: string
+  description: string
+  amount: number
+  date: string
+  paid: boolean
+  paidDate: string
+  notes: string
+}
+
 // ===== Software Subscriptions =====
 export interface Subscription {
   id: string

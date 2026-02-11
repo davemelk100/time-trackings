@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowUp, ArrowDown, X, Printer } from "lucide-react";
+import { ArrowUp, ArrowDown, X } from "lucide-react";
 import { type Client, defaultClients } from "@/lib/project-data";
 import {
   fetchAllTimeEntries,
@@ -31,7 +31,6 @@ import {
   type SubscriptionWithClient,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { handlePrint } from "@/lib/print";
 
 
 function formatCurrency(n: number) {
@@ -255,11 +254,41 @@ export function ReportsSection() {
   );
   const totalTimeCost = hourlyCost + flatCost;
 
+  // Cygnet 10% proceeds deduction
+  const cygnetTimeCost = filteredEntries
+    .filter((e) => e.clientId === "cygnet")
+    .reduce((sum, e) => sum + e.totalHours * (getRate(e.clientId) ?? 0), 0);
+  const cygnetDeduction = cygnetTimeCost * 0.1;
+
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
     return sum + s.amount / 12;
   }, 0);
   const totalSubsAnnual = totalSubsMonthly * 12;
+
+  // Per-client time cost breakdown
+  const perClientTimeCost = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of filteredEntries) {
+      const flat = getFlatRate(e.clientId);
+      if (flat != null) {
+        map[e.clientId] = flat;
+      } else {
+        map[e.clientId] = (map[e.clientId] ?? 0) + e.totalHours * (getRate(e.clientId) ?? 0);
+      }
+    }
+    return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
+  }, [filteredEntries, clientRateMap, clientFlatRateMap, clientNameMap]);
+
+  // Per-client subscription cost breakdown (annualized)
+  const perClientSubsCost = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of filteredSubs) {
+      const annual = s.billingCycle === "monthly" ? s.amount * 12 : s.amount;
+      map[s.clientId] = (map[s.clientId] ?? 0) + annual;
+    }
+    return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
+  }, [filteredSubs, clientNameMap]);
 
   function toggleTimeSort(key: TimeSortKey) {
     if (timeSortKey === key) {
@@ -325,21 +354,8 @@ export function ReportsSection() {
         </Card>
       )}
 
-      {/* Print Button */}
-      <div className="flex justify-end print:hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={handlePrint}
-        >
-          <Printer className="h-4 w-4" />
-          Print Report
-        </Button>
-      </div>
-
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 print:hidden">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -389,6 +405,20 @@ export function ReportsSection() {
             </p>
           </CardContent>
         </Card>
+        {cygnetDeduction > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Nextier Proceeds
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold font-mono text-destructive">
+                {formatCurrency(cygnetDeduction)}
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Filters */}
@@ -669,30 +699,59 @@ export function ReportsSection() {
       </Card>
 
       {/* Grand Total */}
-      <Card className="ml-auto sm:max-w-[50%]">
+      <Card className="ml-auto sm:max-w-[60%]">
         <CardHeader>
           <CardTitle>Total</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex justify-end">
-            <div className="flex flex-col items-end">
-              <div className="flex flex-col gap-0.5 items-end text-muted-foreground">
-                <div className="flex items-baseline gap-2">
-                  <span>Time Tracking</span>
-                  <span className="font-mono">
-                    {formatCurrency(totalTimeCost)}
-                  </span>
+            <div className="flex flex-col items-end w-full">
+              {/* Hourly / Time Tracking */}
+              <div className="flex flex-col gap-0.5 items-end w-full text-muted-foreground">
+                <span className="font-medium text-foreground">Time Tracking</span>
+                {perClientTimeCost.map(([id, cost]) => (
+                  <div key={id} className="flex items-baseline gap-2">
+                    <span>{getClientName(id)}</span>
+                    <span className="font-mono">{formatCurrency(cost)}</span>
+                  </div>
+                ))}
+                {cygnetDeduction > 0 && (
+                  <div className="flex items-baseline gap-2">
+                    <span>Nextier 10% Proceeds</span>
+                    <span className="font-mono text-destructive">
+                      &minus;{formatCurrency(cygnetDeduction)}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-border pt-0.5 w-full text-right">
+                  <span className="font-mono font-semibold">{formatCurrency(totalTimeCost - cygnetDeduction)}</span>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span>Subscriptions</span>
-                  <span className="font-mono">
+              </div>
+
+              {/* Subscriptions */}
+              <div className="flex flex-col gap-0.5 items-end w-full text-muted-foreground mt-3">
+                <span className="font-medium text-foreground">Subscriptions</span>
+                {perClientSubsCost.map(([id, cost]) => (
+                  <div key={id} className="flex items-baseline gap-2">
+                    <span>{getClientName(id)}</span>
+                    <span className="font-mono">
+                      {formatCurrency(cost)}
+                      <span className="ml-1 text-muted-foreground">/yr</span>
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t border-border pt-0.5 w-full text-right">
+                  <span className="font-mono font-semibold">
                     {formatCurrency(totalSubsAnnual)}
+                    <span className="ml-1 font-normal text-muted-foreground">/yr</span>
                   </span>
                 </div>
               </div>
-              <div className="mt-1 border-t border-border pt-1 w-full text-right">
+
+              {/* Grand Total */}
+              <div className="mt-3 border-t-2 border-border pt-1 w-full text-right">
                 <span className="font-mono font-bold text-primary">
-                  {formatCurrency(totalTimeCost + totalSubsAnnual)}
+                  {formatCurrency(totalTimeCost + totalSubsAnnual - cygnetDeduction)}
                 </span>
               </div>
             </div>

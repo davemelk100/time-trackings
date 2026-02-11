@@ -7,12 +7,10 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
-import { Button } from "@/components/ui/button"
-import { Printer } from "lucide-react"
+import { DashboardFooter } from "@/components/dashboard-footer"
 import { type Client, defaultClients } from "@/lib/project-data"
 import { fetchClients } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
-import { handlePrint } from "@/lib/print"
 
 export default function ClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -59,24 +57,11 @@ export default function ClientPage() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName={client.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
-        <div className="flex justify-end print:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handlePrint}
-          >
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
-        </div>
         <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
         <SubscriptionsSection editMode={false} clientId={client.id} />
         <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
       </main>
-      <footer className="border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
-        Melkonian Industries LLC
-      </footer>
+      <DashboardFooter />
     </div>
   )
 }

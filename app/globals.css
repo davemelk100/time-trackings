@@ -134,14 +134,14 @@
   }
 
   /* Flatten grids to single column, left-align everything */
-  [class*="grid"] {
+  [class*="grid"]:not(.print\:hidden) {
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 4px !important;
   }
 
-  [class*="grid"] > * {
+  [class*="grid"]:not(.print\:hidden) > * {
     text-align: left !important;
     align-items: flex-start !important;
     margin-left: 0 !important;

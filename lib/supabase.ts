@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { TimeEntry, Subscription, Attachment, Client } from "./project-data"
+import type { TimeEntry, Subscription, Attachment, Client, Payable } from "./project-data"
 
 export function createClient() {
   return createSupabaseClient(
@@ -240,6 +240,66 @@ export async function seedSubscriptions(supabase: SupabaseClient, subs: Subscrip
     return row
   })
   const { error } = await supabase.from("subscriptions").insert(rows)
+  if (error) throw error
+}
+
+// ── Payables CRUD ───────────────────────────────────────────────────
+
+interface PayableRow {
+  id: string
+  client_id: string
+  description: string
+  amount: number
+  date: string
+  paid: boolean
+  paid_date: string | null
+  notes: string
+}
+
+function rowToPayable(row: PayableRow): Payable {
+  return {
+    id: row.id,
+    description: row.description,
+    amount: Number(row.amount),
+    date: row.date,
+    paid: row.paid,
+    paidDate: row.paid_date ?? "",
+    notes: row.notes,
+  }
+}
+
+function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id"> & { id?: string } {
+  return {
+    id: p.id,
+    client_id: clientId,
+    description: p.description,
+    amount: p.amount,
+    date: p.date,
+    paid: p.paid,
+    paid_date: p.paidDate || null,
+    notes: p.notes,
+  }
+}
+
+export async function fetchPayables(supabase: SupabaseClient, clientId: string): Promise<Payable[]> {
+  const { data, error } = await supabase
+    .from("payables")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("date", { ascending: false })
+
+  if (error) throw error
+  return (data as PayableRow[]).map(rowToPayable)
+}
+
+export async function upsertPayable(supabase: SupabaseClient, payable: Payable, clientId: string): Promise<void> {
+  const row = payableToRow(payable, clientId)
+  const { error } = await supabase.from("payables").upsert(row)
+  if (error) throw error
+}
+
+export async function deletePayable(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("payables").delete().eq("id", id)
   if (error) throw error
 }
 

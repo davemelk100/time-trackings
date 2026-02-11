@@ -34,8 +34,21 @@ CREATE TABLE IF NOT EXISTS clients (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS payables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  date DATE NOT NULL,
+  paid BOOLEAN NOT NULL DEFAULT false,
+  paid_date DATE,
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_time_entries_client ON time_entries (client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions (client_id);
+CREATE INDEX IF NOT EXISTS idx_payables_client ON payables (client_id);
 
 -- Insert time entries
 INSERT INTO time_entries (client_id, date, start_time, end_time, time_range, total_hours, tasks, notes) VALUES

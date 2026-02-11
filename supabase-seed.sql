@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS payables (
   paid BOOLEAN NOT NULL DEFAULT false,
   paid_date DATE,
   notes TEXT NOT NULL DEFAULT '',
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

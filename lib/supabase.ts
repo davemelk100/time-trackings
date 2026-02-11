@@ -254,6 +254,7 @@ interface PayableRow {
   paid: boolean
   paid_date: string | null
   notes: string
+  attachments: Attachment[]
 }
 
 function rowToPayable(row: PayableRow): Payable {
@@ -265,6 +266,7 @@ function rowToPayable(row: PayableRow): Payable {
     paid: row.paid,
     paidDate: row.paid_date ?? "",
     notes: row.notes,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
   }
 }
 
@@ -278,6 +280,7 @@ function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id"> & { 
     paid: p.paid,
     paid_date: p.paidDate || null,
     notes: p.notes,
+    attachments: p.attachments ?? [],
   }
 }
 

@@ -23,14 +23,18 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import type { Payable } from "@/lib/project-data";
+import type { Payable, Attachment } from "@/lib/project-data";
 import {
   fetchPayables,
   upsertPayable,
   deletePayable as deletePayableApi,
+  uploadAttachment,
+  getAttachmentUrl,
+  deleteAttachment,
+  deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -66,6 +70,12 @@ export function PayablesSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([]);
+  const [viewAttachmentsPayable, setViewAttachmentsPayable] = useState<Payable | null>(null);
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +114,9 @@ export function PayablesSection({
   const openAdd = useCallback(() => {
     setEditingId(null);
     setForm({ ...emptyForm, date: todayISO() });
+    setPendingFiles([]);
+    setExistingAttachments([]);
+    setAttachmentsToDelete([]);
     setDialogOpen(true);
   }, []);
 
@@ -115,6 +128,9 @@ export function PayablesSection({
       date: p.date,
       notes: p.notes,
     });
+    setPendingFiles([]);
+    setExistingAttachments(p.attachments ?? []);
+    setAttachmentsToDelete([]);
     setDialogOpen(true);
   }, []);
 
@@ -126,6 +142,24 @@ export function PayablesSection({
     try {
       setSaving(true);
 
+      // Delete attachments marked for removal
+      for (const att of attachmentsToDelete) {
+        await deleteAttachment(supabase, att.path);
+      }
+
+      // Upload new files
+      const newAttachments: Attachment[] = [];
+      for (const file of pendingFiles) {
+        const att = await uploadAttachment(supabase, file, clientId, payableId);
+        newAttachments.push(att);
+      }
+
+      // Compute final attachments list
+      const remainingExisting = existingAttachments.filter(
+        (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+      );
+      const finalAttachments = [...remainingExisting, ...newAttachments];
+
       if (editingId) {
         const existing = payables.find((p) => p.id === editingId);
         const updated: Payable = {
@@ -136,6 +170,7 @@ export function PayablesSection({
           paid: existing?.paid ?? false,
           paidDate: existing?.paidDate ?? "",
           notes: form.notes,
+          attachments: finalAttachments,
         };
         setPayables((prev) =>
           prev.map((p) => (p.id === editingId ? updated : p)),
@@ -150,6 +185,7 @@ export function PayablesSection({
           paid: false,
           paidDate: "",
           notes: form.notes,
+          attachments: finalAttachments,
         };
         setPayables((prev) => [newPayable, ...prev]);
         await upsertPayable(supabase, newPayable, clientId);
@@ -168,14 +204,18 @@ export function PayablesSection({
     } finally {
       setSaving(false);
     }
-  }, [editingId, form, clientId, supabase, payables]);
+  }, [editingId, form, clientId, supabase, payables, pendingFiles, existingAttachments, attachmentsToDelete]);
 
   const handleDelete = useCallback(
     async (id: string) => {
       const prev = payables;
+      const toDelete = payables.find((p) => p.id === id);
       setPayables((current) => current.filter((p) => p.id !== id));
 
       try {
+        if (toDelete?.attachments?.length) {
+          await deleteAllAttachments(supabase, toDelete.attachments);
+        }
         await deletePayableApi(supabase, id);
       } catch (err) {
         setError(
@@ -194,6 +234,7 @@ export function PayablesSection({
         ...p,
         paid: newPaid,
         paidDate: newPaid ? todayISO() : "",
+        attachments: p.attachments ?? [],
       };
       setPayables((prev) =>
         prev.map((item) => (item.id === p.id ? updated : item)),
@@ -289,7 +330,19 @@ export function PayablesSection({
                         {p.description}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(p.amount)}
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatCurrency(p.amount)}
+                          {p.attachments?.length > 0 && (
+                            <button
+                              type="button"
+                              className="inline-flex text-muted-foreground hover:text-primary"
+                              title={`${p.attachments.length} file(s)`}
+                              onClick={() => setViewAttachmentsPayable(p)}
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <button type="button" onClick={() => togglePaid(p)}>
@@ -366,6 +419,68 @@ export function PayablesSection({
         </CardContent>
       </Card>
 
+      {/* View Attachments Dialog */}
+      <Dialog
+        open={viewAttachmentsPayable !== null}
+        onOpenChange={() => setViewAttachmentsPayable(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Attachments</DialogTitle>
+            <DialogDescription>
+              {viewAttachmentsPayable?.attachments?.length ?? 0} file(s) attached
+              to this payable.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+            {viewAttachmentsPayable?.attachments?.map((att) => {
+              const url = getAttachmentUrl(supabase, att.path);
+              return (
+                <div key={att.path} className="flex flex-col gap-2">
+                  {att.name.toLowerCase().endsWith(".pdf") ? (
+                    <iframe
+                      src={url}
+                      title={att.name}
+                      className="w-full rounded-md border h-64"
+                    />
+                  ) : (
+                    <img
+                      src={url}
+                      alt={att.name}
+                      className="w-full rounded-md border object-contain max-h-64"
+                    />
+                  )}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{att.name}</span>
+                    <span className="text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <a
+                      href={url}
+                      download={att.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewAttachmentsPayable(null)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -427,6 +542,81 @@ export function PayablesSection({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Optional notes"
               />
+            </div>
+
+            {/* Attachments */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Attachments</Label>
+              <input
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                multiple
+                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  const valid = files.filter((f) => {
+                    if (f.size > MAX_FILE_SIZE) {
+                      setError(`"${f.name}" exceeds 5 MB limit`);
+                      return false;
+                    }
+                    return true;
+                  });
+                  setPendingFiles((prev) => [...prev, ...valid]);
+                  e.target.value = "";
+                }}
+              />
+
+              {/* Existing attachments */}
+              {existingAttachments
+                .filter(
+                  (a) => !attachmentsToDelete.some((d) => d.path === a.path),
+                )
+                .map((att) => (
+                  <div
+                    key={att.path}
+                    className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{att.name}</span>
+                    <span className="ml-auto text-muted-foreground">
+                      {(att.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                      type="button"
+                      className="text-destructive hover:text-destructive/80"
+                      onClick={() =>
+                        setAttachmentsToDelete((prev) => [...prev, att])
+                      }
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+              {/* Pending files */}
+              {pendingFiles.map((file, idx) => (
+                <div
+                  key={`pending-${idx}`}
+                  className="flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:text-destructive/80"
+                    onClick={() =>
+                      setPendingFiles((prev) =>
+                        prev.filter((_, i) => i !== idx),
+                      )
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <DialogFooter>

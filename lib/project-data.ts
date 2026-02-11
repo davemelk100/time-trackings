@@ -413,6 +413,7 @@ export interface Payable {
   paid: boolean
   paidDate: string
   notes: string
+  attachments: Attachment[]
 }
 
 // ===== Software Subscriptions =====

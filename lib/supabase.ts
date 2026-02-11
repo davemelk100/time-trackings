@@ -148,6 +148,10 @@ export interface SubscriptionWithClient extends Subscription {
   clientId: string
 }
 
+export interface PayableWithClient extends Payable {
+  clientId: string
+}
+
 export async function fetchAllTimeEntries(supabase: SupabaseClient): Promise<TimeEntryWithClient[]> {
   const { data, error } = await supabase
     .from("time_entries")
@@ -170,6 +174,19 @@ export async function fetchAllSubscriptions(supabase: SupabaseClient): Promise<S
   if (error) throw error
   return (data as (SubscriptionRow & { client_id: string })[]).map((row) => ({
     ...rowToSubscription(row),
+    clientId: row.client_id,
+  }))
+}
+
+export async function fetchAllPayables(supabase: SupabaseClient): Promise<PayableWithClient[]> {
+  const { data, error } = await supabase
+    .from("payables")
+    .select("*")
+    .order("date", { ascending: false })
+
+  if (error) throw error
+  return (data as (PayableRow & { client_id: string })[]).map((row) => ({
+    ...rowToPayable(row),
     clientId: row.client_id,
   }))
 }

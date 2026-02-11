@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Payable, Attachment } from "@/lib/project-data";
 import {
   fetchPayables,
+  fetchTimeEntries,
   upsertPayable,
   deletePayable as deletePayableApi,
   uploadAttachment,
@@ -58,9 +59,15 @@ const emptyForm = {
 export function PayablesSection({
   editMode = false,
   clientId = "cygnet",
+  hourlyRate = null,
+  flatRate = null,
+  onPayablesChange,
 }: {
   editMode?: boolean;
   clientId?: string;
+  hourlyRate?: number | null;
+  flatRate?: number | null;
+  onPayablesChange?: () => void;
 }) {
   const { supabase } = useAuth();
   const [payables, setPayables] = useState<Payable[]>([]);
@@ -74,6 +81,7 @@ export function PayablesSection({
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([]);
   const [viewAttachmentsPayable, setViewAttachmentsPayable] = useState<Payable | null>(null);
+  const [tenPercent, setTenPercent] = useState(0);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -84,9 +92,21 @@ export function PayablesSection({
 
     async function load() {
       try {
-        const rows = await fetchPayables(supabase, clientId);
+        const [rows, entries] = await Promise.all([
+          fetchPayables(supabase, clientId),
+          fetchTimeEntries(supabase, clientId),
+        ]);
         if (cancelled) return;
         setPayables(rows);
+
+        const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
+        const timeCost =
+          flatRate != null
+            ? flatRate
+            : hourlyRate != null
+              ? totalHours * hourlyRate
+              : 0;
+        setTenPercent(Math.round(timeCost * 0.1 * 100) / 100);
       } catch (err) {
         if (!cancelled)
           setError(
@@ -101,7 +121,7 @@ export function PayablesSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase]);
+  }, [clientId, supabase, hourlyRate, flatRate]);
 
   const totalOwed = payables
     .filter((p) => !p.paid)
@@ -113,12 +133,17 @@ export function PayablesSection({
 
   const openAdd = useCallback(() => {
     setEditingId(null);
-    setForm({ ...emptyForm, date: todayISO() });
+    setForm({
+      ...emptyForm,
+      date: todayISO(),
+      amount: tenPercent,
+      description: tenPercent > 0 ? "10% of time entries" : "",
+    });
     setPendingFiles([]);
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setDialogOpen(true);
-  }, []);
+  }, [tenPercent]);
 
   const openEdit = useCallback((p: Payable) => {
     setEditingId(p.id);
@@ -189,8 +214,24 @@ export function PayablesSection({
         };
         setPayables((prev) => [newPayable, ...prev]);
         await upsertPayable(supabase, newPayable, clientId);
+
+        // Mirror as a paid proceed on the Nextier client
+        if (clientId !== "nextier") {
+          const nextierPayable: Payable = {
+            id: crypto.randomUUID(),
+            description: form.description,
+            amount: form.amount,
+            date: form.date,
+            paid: true,
+            paidDate: todayISO(),
+            notes: form.notes,
+            attachments: [],
+          };
+          await upsertPayable(supabase, nextierPayable, "nextier");
+        }
       }
       setDialogOpen(false);
+      onPayablesChange?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to save payable",
@@ -217,6 +258,7 @@ export function PayablesSection({
           await deleteAllAttachments(supabase, toDelete.attachments);
         }
         await deletePayableApi(supabase, id);
+        onPayablesChange?.();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to delete payable",
@@ -242,6 +284,7 @@ export function PayablesSection({
 
       try {
         await upsertPayable(supabase, updated, clientId);
+        onPayablesChange?.();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to update payable",
@@ -280,7 +323,7 @@ export function PayablesSection({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
-            <CardTitle>Payables</CardTitle>
+            <CardTitle>{clientId === "nextier" ? "Nextier Proceeds" : "Payables"}</CardTitle>
           </div>
           {editMode && (
             <Button size="sm" onClick={openAdd} className="gap-1.5">
@@ -314,8 +357,9 @@ export function PayablesSection({
                       colSpan={editMode ? 7 : 6}
                       className="py-8 text-center text-muted-foreground"
                     >
-                      No payables yet. Click &quot;Add Payable&quot; to get
-                      started.
+                      {clientId === "nextier"
+                        ? "No proceeds yet."
+                        : "No payables yet. Click \"Add Payable\" to get started."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -376,15 +420,17 @@ export function PayablesSection({
                               <Pencil className="h-3.5 w-3.5" />
                               <span className="sr-only">Edit</span>
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(p.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
+                            {clientId !== "nextier" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(p.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       )}

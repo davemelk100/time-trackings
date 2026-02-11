@@ -39,6 +39,7 @@ export default function Page() {
   const [newFlatRate, setNewFlatRate] = useState("")
   const [saving, setSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+  const [payablesKey, setPayablesKey] = useState(0)
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -145,8 +146,8 @@ export default function Page() {
           <>
             <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
             <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
-            <PayablesSection editMode={editMode} clientId={activeClient.id} />
-            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
+            <PayablesSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
+            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey} />
           </>
         )}
       </main>

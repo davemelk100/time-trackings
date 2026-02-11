@@ -6,6 +6,7 @@ import { notFound } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
+import { PayablesSection } from "@/components/payables-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { type Client, defaultClients } from "@/lib/project-data"
@@ -17,6 +18,7 @@ export default function ClientPage() {
   const { supabase } = useAuth()
   const [client, setClient] = useState<Client | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [payablesKey, setPayablesKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +61,8 @@ export default function ClientPage() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
         <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
         <SubscriptionsSection editMode={false} clientId={client.id} />
-        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
+        <PayablesSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
+        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={payablesKey} />
       </main>
       <DashboardFooter />
     </div>

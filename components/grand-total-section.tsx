@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { fetchTimeEntries, fetchSubscriptions } from "@/lib/supabase"
+import { fetchTimeEntries, fetchSubscriptions, fetchPayables } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
 function formatCurrency(n: number) {
@@ -13,12 +13,13 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null }) {
+export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null, refreshKey = 0 }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null; refreshKey?: number }) {
   const { supabase } = useAuth()
   const HOURLY_RATE = hourlyRate
   const FLAT_RATE = flatRate
   const [timeCost, setTimeCost] = useState<number | null>(0)
   const [subscriptionMonthly, setSubscriptionMonthly] = useState(0)
+  const [payablesPaid, setPayablesPaid] = useState(0)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -27,9 +28,10 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
 
     async function load() {
       try {
-        const [entries, subs] = await Promise.all([
+        const [entries, subs, payables] = await Promise.all([
           fetchTimeEntries(supabase, clientId),
           fetchSubscriptions(supabase, clientId),
+          fetchPayables(supabase, clientId),
         ])
         if (cancelled) return
 
@@ -41,6 +43,11 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
           return sum + s.amount / 12
         }, 0)
         setSubscriptionMonthly(monthly)
+
+        const paid = payables
+          .filter((p) => p.paid)
+          .reduce((sum, p) => sum + p.amount, 0)
+        setPayablesPaid(paid)
       } catch {
         // Sections already show their own errors
       } finally {
@@ -50,12 +57,16 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
 
     load()
     return () => { cancelled = true }
-  }, [clientId, supabase])
+  }, [clientId, supabase, refreshKey])
 
   if (!loaded) return null
 
   const subscriptionAnnual = subscriptionMonthly * 12
-  const grandTotal = timeCost != null ? timeCost + subscriptionAnnual : null
+  const isNextier = clientId === "nextier"
+  const subtotal = timeCost != null ? timeCost + subscriptionAnnual : null
+  const grandTotal = isNextier
+    ? payablesPaid
+    : subtotal != null ? subtotal - payablesPaid : null
 
   return (
     <Card className="ml-auto sm:max-w-[50%]">
@@ -66,14 +77,24 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
           <div className="flex justify-end">
             <div className="flex flex-col items-end">
               <div className="flex flex-col gap-0.5 items-end text-muted-foreground">
-                <div className="flex items-baseline gap-2">
-                  <span>Time Tracking</span>
-                  <span className="font-mono">{timeCost != null ? formatCurrency(timeCost) : "TBD"}</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span>Subscriptions</span>
-                  <span className="font-mono">{formatCurrency(subscriptionAnnual)}</span>
-                </div>
+                {(timeCost == null || timeCost > 0) && (
+                  <div className="flex items-baseline gap-2">
+                    <span>Time Tracking</span>
+                    <span className="font-mono">{timeCost != null ? formatCurrency(timeCost) : "TBD"}</span>
+                  </div>
+                )}
+                {subscriptionAnnual > 0 && (
+                  <div className="flex items-baseline gap-2">
+                    <span>Subscriptions</span>
+                    <span className="font-mono">{formatCurrency(subscriptionAnnual)}</span>
+                  </div>
+                )}
+                {payablesPaid > 0 && (
+                  <div className="flex items-baseline gap-2">
+                    <span>{clientId === "nextier" ? "Proceeds" : "Payables (Paid)"}</span>
+                    <span className="font-mono">{clientId === "nextier" ? "" : "\u2212"}{formatCurrency(payablesPaid)}</span>
+                  </div>
+                )}
               </div>
               <div className="mt-1 border-t border-border pt-1 w-full text-right">
                 <span className="font-mono font-bold text-primary">{grandTotal != null ? formatCurrency(grandTotal) : "TBD"}</span>

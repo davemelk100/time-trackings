@@ -29,6 +29,7 @@ import {
   fetchTimeEntries,
   upsertPayable,
   deletePayable as deletePayableApi,
+  deletePayableByMatch,
   uploadAttachment,
   getAttachmentUrl,
   deleteAttachment,
@@ -258,6 +259,17 @@ export function PayablesSection({
           await deleteAllAttachments(supabase, toDelete.attachments);
         }
         await deletePayableApi(supabase, id);
+
+        // Also delete the mirror record on Nextier
+        if (clientId !== "nextier" && toDelete) {
+          await deletePayableByMatch(
+            supabase,
+            "nextier",
+            toDelete.description,
+            toDelete.amount,
+            toDelete.date,
+          );
+        }
         onPayablesChange?.();
       } catch (err) {
         setError(
@@ -325,7 +337,7 @@ export function PayablesSection({
           <div>
             <CardTitle>{clientId === "nextier" ? "Nextier Proceeds" : "Payables"}</CardTitle>
           </div>
-          {editMode && (
+          {editMode && clientId !== "nextier" && (
             <Button size="sm" onClick={openAdd} className="gap-1.5">
               <Plus className="h-4 w-4" />
               Add Payable
@@ -411,15 +423,17 @@ export function PayablesSection({
                       {editMode && (
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openEdit(p)}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              <span className="sr-only">Edit</span>
-                            </Button>
+                            {clientId !== "nextier" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEdit(p)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span className="sr-only">Edit</span>
+                              </Button>
+                            )}
                             {clientId !== "nextier" && (
                               <Button
                                 variant="ghost"

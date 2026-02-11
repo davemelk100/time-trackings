@@ -323,6 +323,23 @@ export async function deletePayable(supabase: SupabaseClient, id: string): Promi
   if (error) throw error
 }
 
+export async function deletePayableByMatch(
+  supabase: SupabaseClient,
+  clientId: string,
+  description: string,
+  amount: number,
+  date: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("payables")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("description", description)
+    .eq("amount", amount)
+    .eq("date", date)
+  if (error) throw error
+}
+
 // ── Attachment Storage ──────────────────────────────────────────────
 
 export async function uploadAttachment(

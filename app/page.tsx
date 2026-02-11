@@ -144,8 +144,12 @@ export default function Page() {
         </div>
         {activeClient && (
           <>
-            <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
-            <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
+            {activeClient.id !== "nextier" && (
+              <>
+                <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
+                <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
+              </>
+            )}
             <PayablesSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
             <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey} />
           </>

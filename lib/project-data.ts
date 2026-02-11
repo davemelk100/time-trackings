@@ -395,12 +395,13 @@ export interface Client {
   id: string
   name: string
   hourlyRate: number | null
+  flatRate: number | null
 }
 
 export const defaultClients: Client[] = [
-  { id: "cygnet", name: "Cygnet Institute", hourlyRate: 62 },
-  { id: "client-b", name: "Mind Flip", hourlyRate: 50 },
-  { id: "client-c", name: "A. Lawrence", hourlyRate: null },
+  { id: "cygnet", name: "Cygnet Institute", hourlyRate: 62, flatRate: null },
+  { id: "client-b", name: "Mind Flip", hourlyRate: 50, flatRate: null },
+  { id: "client-c", name: "A. Lawrence", hourlyRate: null, flatRate: null },
 ]
 
 // ===== Software Subscriptions =====

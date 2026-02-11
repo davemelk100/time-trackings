@@ -124,13 +124,16 @@ export function TimeTrackingSection({
   editMode = false,
   clientId = "cygnet",
   hourlyRate = null,
+  flatRate = null,
 }: {
   editMode?: boolean;
   clientId?: string;
   hourlyRate?: number | null;
+  flatRate?: number | null;
 }) {
   const { supabase } = useAuth();
   const HOURLY_RATE = hourlyRate;
+  const FLAT_RATE = flatRate;
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +197,11 @@ export function TimeTrackingSection({
   }, [clientId, supabase]);
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalCost = HOURLY_RATE != null ? totalHours * HOURLY_RATE : null;
+  const totalCost = FLAT_RATE != null
+    ? FLAT_RATE
+    : HOURLY_RATE != null
+      ? totalHours * HOURLY_RATE
+      : null;
 
   const calculatedHours = calcHours(form.startTime, form.endTime);
 
@@ -359,8 +366,8 @@ export function TimeTrackingSection({
                 <span className="font-medium">@MelkonianLLC</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Hourly Rate: </span>
-                <span className="font-medium">{HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
+                <span className="text-muted-foreground">{FLAT_RATE != null ? "Flat Rate: " : "Hourly Rate: "}</span>
+                <span className="font-medium">{FLAT_RATE != null ? formatCurrency(FLAT_RATE) : HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
               </div>
             </div>
           </div>
@@ -384,8 +391,8 @@ export function TimeTrackingSection({
               <span className="font-medium">@MelkonianLLC</span>
             </div>
             <div className="flex flex-col gap-0.5 ml-auto items-center text-center">
-              <span className="text-muted-foreground">Hourly Rate</span>
-              <span className="font-medium">{HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
+              <span className="text-muted-foreground">{FLAT_RATE != null ? "Flat Rate" : "Hourly Rate"}</span>
+              <span className="font-medium">{FLAT_RATE != null ? formatCurrency(FLAT_RATE) : HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
             </div>
           </div>
         </CardHeader>
@@ -461,7 +468,7 @@ export function TimeTrackingSection({
                     </TableCell>
                     <TableCell className="text-right font-monotext-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        {HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
+                        {FLAT_RATE != null ? "\u2014" : HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
                         {entry.attachments?.length > 0 && (
                           <button
                             type="button"
@@ -599,7 +606,7 @@ export function TimeTrackingSection({
                       : "Invalid range"}
                   </span>
                 </div>
-                {calculatedHours > 0 && (
+                {calculatedHours > 0 && FLAT_RATE == null && (
                   <div className="ml-auto flex flex-col text-right">
                     <span className="text-muted-foreground">
                       Estimated Cost

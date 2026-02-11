@@ -124,12 +124,22 @@ export function ReportsSection() {
     return map;
   }, [clients]);
 
+  const clientFlatRateMap = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    for (const c of clients) map[c.id] = c.flatRate;
+    return map;
+  }, [clients]);
+
   function getClientName(clientId: string): string {
     return clientNameMap[clientId] ?? clientId;
   }
 
   function getRate(clientId: string): number | null {
     return clientRateMap[clientId] ?? null;
+  }
+
+  function getFlatRate(clientId: string): number | null {
+    return clientFlatRateMap[clientId] ?? null;
   }
 
   // Derive available months from entries
@@ -230,7 +240,20 @@ export function ReportsSection() {
 
   // Summary stats
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalTimeCost = filteredEntries.reduce((sum, e) => sum + e.totalHours * (getRate(e.clientId) ?? 0), 0);
+
+  // For hourly clients: sum hours * rate. For flat-rate clients: sum flat rate once per client.
+  const hourlyCost = filteredEntries.reduce((sum, e) => {
+    if (getFlatRate(e.clientId) != null) return sum;
+    return sum + e.totalHours * (getRate(e.clientId) ?? 0);
+  }, 0);
+  const flatRateClientsInFilter = new Set(
+    filteredEntries.map((e) => e.clientId).filter((id) => getFlatRate(id) != null),
+  );
+  const flatCost = Array.from(flatRateClientsInFilter).reduce(
+    (sum, id) => sum + (getFlatRate(id) ?? 0),
+    0,
+  );
+  const totalTimeCost = hourlyCost + flatCost;
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -523,9 +546,11 @@ export function ReportsSection() {
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
-                      {getRate(entry.clientId) != null
-                        ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
-                        : "TBD"}
+                      {getFlatRate(entry.clientId) != null
+                        ? "\u2014"
+                        : getRate(entry.clientId) != null
+                          ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
+                          : "TBD"}
                     </TableCell>
                   </TableRow>
                 ))

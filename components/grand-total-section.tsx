@@ -13,9 +13,10 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null }: { clientId?: string; hourlyRate?: number | null }) {
+export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null }) {
   const { supabase } = useAuth()
   const HOURLY_RATE = hourlyRate
+  const FLAT_RATE = flatRate
   const [timeCost, setTimeCost] = useState<number | null>(0)
   const [subscriptionMonthly, setSubscriptionMonthly] = useState(0)
   const [loaded, setLoaded] = useState(false)
@@ -33,7 +34,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null }: { 
         if (cancelled) return
 
         const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
-        setTimeCost(HOURLY_RATE != null ? totalHours * HOURLY_RATE : null)
+        setTimeCost(FLAT_RATE != null ? FLAT_RATE : HOURLY_RATE != null ? totalHours * HOURLY_RATE : null)
 
         const monthly = subs.reduce((sum, s) => {
           if (s.billingCycle === "monthly") return sum + s.amount

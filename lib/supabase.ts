@@ -14,6 +14,7 @@ interface ClientRow {
   id: string
   name: string
   hourly_rate: number | null
+  flat_rate: number | null
   created_at: string
 }
 
@@ -22,6 +23,7 @@ function rowToClient(row: ClientRow): Client {
     id: row.id,
     name: row.name,
     hourlyRate: row.hourly_rate != null ? Number(row.hourly_rate) : null,
+    flatRate: row.flat_rate != null ? Number(row.flat_rate) : null,
   }
 }
 
@@ -37,12 +39,13 @@ export async function fetchClients(supabase: SupabaseClient): Promise<Client[]> 
 
 export async function insertClient(
   supabase: SupabaseClient,
-  client: { id: string; name: string; hourlyRate: number | null },
+  client: { id: string; name: string; hourlyRate: number | null; flatRate: number | null },
 ): Promise<void> {
   const { error } = await supabase.from("clients").insert({
     id: client.id,
     name: client.name,
     hourly_rate: client.hourlyRate,
+    flat_rate: client.flatRate,
   })
   if (error) throw error
 }

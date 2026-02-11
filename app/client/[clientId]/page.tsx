@@ -70,9 +70,9 @@ export default function ClientPage() {
             Print
           </Button>
         </div>
-        <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} />
+        <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
         <SubscriptionsSection editMode={false} clientId={client.id} />
-        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} />
+        <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
       </main>
       <footer className="border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
         Melkonian Industries LLC

@@ -35,7 +35,9 @@ export default function Page() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [newName, setNewName] = useState("")
   const [newRate, setNewRate] = useState("")
+  const [newFlatRate, setNewFlatRate] = useState("")
   const [saving, setSaving] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function Page() {
         // Seed from defaults if table is empty
         if (rows.length === 0) {
           for (const c of defaultClients) {
-            await insertClient(supabase, { id: c.id, name: c.name, hourlyRate: c.hourlyRate })
+            await insertClient(supabase, { id: c.id, name: c.name, hourlyRate: c.hourlyRate, flatRate: c.flatRate })
           }
           rows = await fetchClients(supabase)
           if (cancelled) return
@@ -77,20 +79,24 @@ export default function Page() {
   async function handleAddClient() {
     if (!newName.trim()) return
     setSaving(true)
+    setAddError(null)
 
     const id = newName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
     const hourlyRate = newRate.trim() ? Number(newRate) : null
+    const flatRate = newFlatRate.trim() ? Number(newFlatRate) : null
 
     try {
-      await insertClient(supabase, { id, name: newName.trim(), hourlyRate })
+      await insertClient(supabase, { id, name: newName.trim(), hourlyRate, flatRate })
       const rows = await fetchClients(supabase)
       setClients(rows)
       setActiveClientId(id)
       setAddDialogOpen(false)
       setNewName("")
       setNewRate("")
-    } catch {
-      // keep dialog open on error
+      setNewFlatRate("")
+      setAddError(null)
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Failed to add client")
     } finally {
       setSaving(false)
     }
@@ -111,10 +117,10 @@ export default function Page() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName="Admin" />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 print:hidden overflow-x-auto">
             <Tabs value={activeClientId} onValueChange={setActiveClientId}>
-              <TabsList>
+              <TabsList className="flex-wrap h-auto">
                 {clients.map((client) => (
                   <TabsTrigger key={client.id} value={client.id}>
                     {client.name}
@@ -125,7 +131,7 @@ export default function Page() {
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 shrink-0"
               onClick={() => setAddDialogOpen(true)}
               aria-label="Add client"
             >
@@ -136,7 +142,7 @@ export default function Page() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 print:hidden"
+            className="gap-1.5 print:hidden shrink-0"
             onClick={handlePrint}
           >
             <Printer className="h-4 w-4" />
@@ -145,9 +151,9 @@ export default function Page() {
         </div>
         {activeClient && (
           <>
-            <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} />
+            <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
             <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
-            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} />
+            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
           </>
         )}
       </main>
@@ -174,6 +180,9 @@ export default function Page() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
+            {addError && (
+              <p className="text-sm text-destructive">{addError}</p>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="client-name">Name</Label>
               <Input
@@ -183,18 +192,35 @@ export default function Page() {
                 onChange={(e) => setNewName(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="client-rate">Hourly Rate (optional)</Label>
-              <Input
-                id="client-rate"
-                type="number"
-                placeholder="e.g. 75"
-                min="0"
-                step="0.01"
-                value={newRate}
-                onChange={(e) => setNewRate(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="client-rate">Hourly Rate</Label>
+                <Input
+                  id="client-rate"
+                  type="number"
+                  placeholder="e.g. 75"
+                  min="0"
+                  step="0.01"
+                  value={newRate}
+                  onChange={(e) => setNewRate(e.target.value)}
+                  disabled={!!newFlatRate.trim()}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="client-flat-rate">Flat Rate</Label>
+                <Input
+                  id="client-flat-rate"
+                  type="number"
+                  placeholder="e.g. 5000"
+                  min="0"
+                  step="0.01"
+                  value={newFlatRate}
+                  onChange={(e) => setNewFlatRate(e.target.value)}
+                  disabled={!!newRate.trim()}
+                />
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">Set either an hourly rate or a flat rate, not both.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddDialogOpen(false)}>

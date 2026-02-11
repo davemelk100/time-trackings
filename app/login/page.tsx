@@ -49,12 +49,16 @@ export default function LoginPage() {
               <Input
                 id="passcode"
                 type="password"
-                inputMode="numeric"
                 maxLength={5}
                 autoComplete="off"
                 required
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  const text = e.clipboardData.getData("text").trim().slice(0, 5)
+                  setPasscode(text)
+                }}
                 placeholder="Enter 5-digit passcode"
               />
             </div>

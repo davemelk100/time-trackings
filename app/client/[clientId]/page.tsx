@@ -59,8 +59,12 @@ export default function ClientPage() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName={client.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
-        <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
-        <SubscriptionsSection editMode={false} clientId={client.id} />
+        {client.id !== "nextier" && (
+          <>
+            <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
+            <SubscriptionsSection editMode={false} clientId={client.id} />
+          </>
+        )}
         <PayablesSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
         <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={payablesKey} />
       </main>

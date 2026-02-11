@@ -6,7 +6,10 @@ import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Printer } from "lucide-react"
 import { defaultClients } from "@/lib/project-data"
+import { handlePrint } from "@/lib/print"
 
 
 export default function Page() {
@@ -19,15 +22,27 @@ export default function Page() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName="Admin" />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
-        <Tabs value={activeClientId} onValueChange={setActiveClientId}>
-          <TabsList>
-            {defaultClients.map((client) => (
-              <TabsTrigger key={client.id} value={client.id}>
-                {client.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center justify-between">
+          <Tabs value={activeClientId} onValueChange={setActiveClientId} className="print:hidden">
+            <TabsList>
+              {defaultClients.map((client) => (
+                <TabsTrigger key={client.id} value={client.id}>
+                  {client.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <span className="hidden print:block text-lg font-semibold">{activeClient.name}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 print:hidden"
+            onClick={handlePrint}
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+        </div>
         <TimeTrackingSection editMode={editMode} clientId={activeClient.id} />
         <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
         <GrandTotalSection clientId={activeClient.id} />

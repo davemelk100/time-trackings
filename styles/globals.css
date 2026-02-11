@@ -92,3 +92,95 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  header,
+  footer,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  [class*="rounded"] {
+    border-radius: 0 !important;
+  }
+
+  [class*="shadow"] {
+    box-shadow: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Convert tables to text lists */
+  table,
+  thead,
+  tbody,
+  tfoot,
+  tr,
+  th,
+  td {
+    display: block !important;
+    border: none !important;
+    padding: 0 !important;
+    text-align: left !important;
+  }
+
+  table {
+    width: 100% !important;
+    font-size: 10pt;
+    margin-bottom: 1em;
+  }
+
+  /* Hide table headers */
+  thead {
+    display: none !important;
+  }
+
+  /* Each row = a text block separated by a line */
+  tbody tr {
+    padding: 6px 0 !important;
+    border-bottom: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+
+  /* Cells become inline text with bullet separators */
+  tbody td {
+    display: inline !important;
+  }
+
+  tbody td:empty {
+    display: none !important;
+  }
+
+  tbody td::after {
+    content: "  \2022  ";
+    color: #999;
+  }
+
+  tbody td:last-child::after {
+    content: "";
+  }
+
+  /* Footer totals */
+  tfoot {
+    margin-top: 4px;
+    border-top: 2px solid #333 !important;
+    padding-top: 4px !important;
+  }
+
+  tfoot td {
+    display: inline !important;
+    font-weight: bold !important;
+  }
+
+  tfoot td::after {
+    content: "  ";
+  }
+
+  tfoot td:last-child::after {
+    content: "";
+  }
+}

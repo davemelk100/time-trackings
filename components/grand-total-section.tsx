@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchTimeEntries, fetchSubscriptions } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
-
-const HOURLY_RATE = 62
+import { getHourlyRate } from "@/lib/project-data"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -17,7 +16,8 @@ function formatCurrency(n: number) {
 
 export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }) {
   const { supabase } = useAuth()
-  const [timeCost, setTimeCost] = useState(0)
+  const HOURLY_RATE = getHourlyRate(clientId)
+  const [timeCost, setTimeCost] = useState<number | null>(0)
   const [subscriptionMonthly, setSubscriptionMonthly] = useState(0)
   const [loaded, setLoaded] = useState(false)
 
@@ -34,7 +34,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
         if (cancelled) return
 
         const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
-        setTimeCost(totalHours * HOURLY_RATE)
+        setTimeCost(HOURLY_RATE != null ? totalHours * HOURLY_RATE : null)
 
         const monthly = subs.reduce((sum, s) => {
           if (s.billingCycle === "monthly") return sum + s.amount
@@ -55,7 +55,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
   if (!loaded) return null
 
   const subscriptionAnnual = subscriptionMonthly * 12
-  const grandTotal = timeCost + subscriptionAnnual
+  const grandTotal = timeCost != null ? timeCost + subscriptionAnnual : null
 
   return (
     <Card className="ml-auto sm:max-w-[50%]">
@@ -68,7 +68,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
               <div className="flex flex-col gap-0.5 items-end text-muted-foreground">
                 <div className="flex items-baseline gap-2">
                   <span>Time Tracking</span>
-                  <span className="font-mono">{formatCurrency(timeCost)}</span>
+                  <span className="font-mono">{timeCost != null ? formatCurrency(timeCost) : "TBD"}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span>Subscriptions</span>
@@ -76,7 +76,7 @@ export function GrandTotalSection({ clientId = "cygnet" }: { clientId?: string }
                 </div>
               </div>
               <div className="mt-1 border-t border-border pt-1 w-full text-right">
-                <span className="font-mono font-bold text-primary">{formatCurrency(grandTotal)}</span>
+                <span className="font-mono font-bold text-primary">{grandTotal != null ? formatCurrency(grandTotal) : "TBD"}</span>
               </div>
             </div>
           </div>

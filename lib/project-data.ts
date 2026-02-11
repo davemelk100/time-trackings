@@ -538,3 +538,14 @@ export const timeTrackingMeta = {
   rate: 62,
   reportingPeriod: "Feb 1 - Feb 27",
 }
+
+export const hourlyRates: Record<string, number | null> = {
+  cygnet: 62,
+  "client-b": 50,
+  "client-c": null,
+}
+
+export function getHourlyRate(clientId: string): number | null {
+  const rate = hourlyRates[clientId]
+  return rate === undefined ? 62 : rate
+}

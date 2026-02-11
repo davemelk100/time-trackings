@@ -9,6 +9,7 @@ import { GrandTotalSection } from "@/components/grand-total-section"
 import { Button } from "@/components/ui/button"
 import { Printer } from "lucide-react"
 import { defaultClients } from "@/lib/project-data"
+import { handlePrint } from "@/lib/print"
 
 export default function ClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -25,7 +26,7 @@ export default function ClientPage() {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => window.print()}
+            onClick={handlePrint}
           >
             <Printer className="h-4 w-4" />
             Print

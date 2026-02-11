@@ -35,6 +35,7 @@ import {
   type Attachment,
   defaultTimeEntries,
   timeTrackingMeta,
+  getHourlyRate,
 } from "@/lib/project-data";
 import {
   fetchTimeEntries,
@@ -49,7 +50,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
-const HOURLY_RATE = 62;
 
 function getReportingPeriod(): string {
   const now = new Date();
@@ -129,6 +129,7 @@ export function TimeTrackingSection({
   clientId?: string;
 }) {
   const { supabase } = useAuth();
+  const HOURLY_RATE = getHourlyRate(clientId);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +193,7 @@ export function TimeTrackingSection({
   }, [clientId, supabase]);
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalCost = totalHours * HOURLY_RATE;
+  const totalCost = HOURLY_RATE != null ? totalHours * HOURLY_RATE : null;
 
   const calculatedHours = calcHours(form.startTime, form.endTime);
 
@@ -340,11 +341,35 @@ export function TimeTrackingSection({
       {/* Meta info */}
       <Card>
         <CardHeader>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex flex-col gap-2">
+          {/* Print-only: two-column layout */}
+          <div className="invoice-print hidden print:flex justify-between items-start">
+            <div className="flex flex-col gap-0.5">
               <CardTitle>Invoice Details</CardTitle>
+              <span className="text-muted-foreground">{getReportingPeriod()}</span>
             </div>
-            <div className="flex flex-col gap-0.5 sm:items-center sm:text-center">
+            <div className="flex flex-col gap-1 items-end text-right">
+              <div>
+                <span className="text-muted-foreground">Payable To: </span>
+                <span className="font-medium">{timeTrackingMeta.payableTo}</span>
+              </div>
+              <div className="text-muted-foreground">2680 Diane Marie Ct, Waterford, MI 48329</div>
+              <div>
+                <span className="text-muted-foreground">Venmo: </span>
+                <span className="font-medium">@MelkonianLLC</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Hourly Rate: </span>
+                <span className="font-medium">{HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
+              </div>
+            </div>
+          </div>
+          {/* Screen: grid layout */}
+          <div className="invoice-screen grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-0.5">
+              <CardTitle>Invoice Details</CardTitle>
+              <span className="text-sm text-muted-foreground">{getReportingPeriod()}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 items-center text-center">
               <span className="text-muted-foreground">Payable To</span>
               <span className="font-medium">{timeTrackingMeta.payableTo}</span>
               <span className="text-muted-foreground">
@@ -353,13 +378,13 @@ export function TimeTrackingSection({
                 Waterford, MI 48329
               </span>
             </div>
-            <div className="flex flex-col gap-0.5 sm:items-center sm:text-center">
+            <div className="flex flex-col gap-0.5 items-center text-center">
               <span className="text-muted-foreground">Venmo</span>
               <span className="font-medium">@MelkonianLLC</span>
             </div>
-            <div className="flex flex-col gap-0.5 sm:text-center lg:items-end lg:text-right">
-              <span className="text-muted-foreground">Reporting Period</span>
-              <span className="font-medium">{getReportingPeriod()}</span>
+            <div className="flex flex-col gap-0.5 ml-auto items-center text-center">
+              <span className="text-muted-foreground">Hourly Rate</span>
+              <span className="font-medium">{HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
             </div>
           </div>
         </CardHeader>
@@ -435,7 +460,7 @@ export function TimeTrackingSection({
                     </TableCell>
                     <TableCell className="text-right font-monotext-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        {formatCurrency(entry.totalHours * HOURLY_RATE)}
+                        {HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
                         {entry.attachments?.length > 0 && (
                           <button
                             type="button"
@@ -486,7 +511,7 @@ export function TimeTrackingSection({
                     {totalHours.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold text-primary">
-                    {formatCurrency(totalCost)}
+                    {totalCost != null ? formatCurrency(totalCost) : "TBD"}
                   </TableCell>
                   {editMode && <TableCell />}
                 </TableRow>
@@ -579,7 +604,7 @@ export function TimeTrackingSection({
                       Estimated Cost
                     </span>
                     <span className="font-mono font-bold text-primary">
-                      {formatCurrency(calculatedHours * HOURLY_RATE)}
+                      {HOURLY_RATE != null ? formatCurrency(calculatedHours * HOURLY_RATE) : "TBD"}
                     </span>
                   </div>
                 )}

@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowUp, ArrowDown, X, Printer } from "lucide-react";
-import { defaultClients } from "@/lib/project-data";
+import { defaultClients, getHourlyRate } from "@/lib/project-data";
 import {
   fetchAllTimeEntries,
   fetchAllSubscriptions,
@@ -30,8 +30,8 @@ import {
   type SubscriptionWithClient,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { handlePrint } from "@/lib/print";
 
-const HOURLY_RATE = 62;
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -178,7 +178,7 @@ export function ReportsSection() {
       } else if (timeSortKey === "hours") {
         cmp = a.totalHours - b.totalHours;
       } else {
-        cmp = a.totalHours * HOURLY_RATE - b.totalHours * HOURLY_RATE;
+        cmp = a.totalHours * (getHourlyRate(a.clientId) ?? 0) - b.totalHours * (getHourlyRate(b.clientId) ?? 0);
       }
       return timeSortDir === "asc" ? cmp : -cmp;
     });
@@ -207,7 +207,7 @@ export function ReportsSection() {
 
   // Summary stats
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalTimeCost = totalHours * HOURLY_RATE;
+  const totalTimeCost = filteredEntries.reduce((sum, e) => sum + e.totalHours * (getHourlyRate(e.clientId) ?? 0), 0);
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -285,7 +285,7 @@ export function ReportsSection() {
           variant="outline"
           size="sm"
           className="gap-1.5"
-          onClick={() => window.print()}
+          onClick={handlePrint}
         >
           <Printer className="h-4 w-4" />
           Print Report
@@ -500,7 +500,9 @@ export function ReportsSection() {
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
-                      {formatCurrency(entry.totalHours * HOURLY_RATE)}
+                      {getHourlyRate(entry.clientId) != null
+                        ? formatCurrency(entry.totalHours * getHourlyRate(entry.clientId)!)
+                        : "TBD"}
                     </TableCell>
                   </TableRow>
                 ))

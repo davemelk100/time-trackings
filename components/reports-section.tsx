@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/select";
 import { ArrowUp, ArrowDown, X } from "lucide-react";
 import { type Client, defaultClients } from "@/lib/project-data";
-import { Badge } from "@/components/ui/badge";
 import {
   fetchAllTimeEntries,
   fetchAllSubscriptions,
@@ -287,12 +286,7 @@ export function ReportsSection() {
   }, 0);
   const totalSubsAnnual = totalSubsMonthly * 12;
 
-  const totalPayablesPaid = filteredPayables
-    .filter((p) => p.paid)
-    .reduce((sum, p) => sum + p.amount, 0);
-  const totalPayablesOwed = filteredPayables
-    .filter((p) => !p.paid)
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalPayables = filteredPayables.reduce((sum, p) => sum + p.amount, 0);
 
   // Per-client time cost breakdown
   const perClientTimeCost = useMemo(() => {
@@ -318,10 +312,10 @@ export function ReportsSection() {
     return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
   }, [filteredSubs, clientNameMap]);
 
-  // Per-client payables paid breakdown
-  const perClientPayablesPaid = useMemo(() => {
+  // Per-client payables breakdown
+  const perClientPayables = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const p of filteredPayables.filter((p) => p.paid)) {
+    for (const p of filteredPayables) {
       map[p.clientId] = (map[p.clientId] ?? 0) + p.amount;
     }
     return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
@@ -442,16 +436,16 @@ export function ReportsSection() {
             </p>
           </CardContent>
         </Card>
-        {totalPayablesPaid > 0 && (
+        {totalPayables > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Payables (Paid)
+                Payables
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold font-mono text-destructive">
-                {formatCurrency(totalPayablesPaid)}
+                {formatCurrency(totalPayables)}
               </p>
             </CardContent>
           </Card>
@@ -764,8 +758,6 @@ export function ReportsSection() {
                     <TableHead>Client</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Paid Date</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -784,14 +776,6 @@ export function ReportsSection() {
                       <TableCell className="text-right font-mono">
                         {formatCurrency(p.amount)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={p.paid ? "default" : "secondary"}>
-                          {p.paid ? "Paid" : "Unpaid"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {p.paidDate ? formatDate(p.paidDate) : "\u2014"}
-                      </TableCell>
                       <TableCell className="max-w-[200px] text-muted-foreground">
                         {p.notes || "\u2014"}
                       </TableCell>
@@ -801,21 +785,12 @@ export function ReportsSection() {
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={3} className="font-semibold">
-                      Total Paid
+                      Total
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold text-primary">
-                      {formatCurrency(totalPayablesPaid)}
+                      {formatCurrency(totalPayables)}
                     </TableCell>
-                    <TableCell colSpan={3} />
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">
-                      Total Owed
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-muted-foreground">
-                      {formatCurrency(totalPayablesOwed)}
-                    </TableCell>
-                    <TableCell colSpan={3} />
+                    <TableCell colSpan={1} />
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -874,18 +849,18 @@ export function ReportsSection() {
                 </div>
               </div>
 
-              {/* Payables (Paid) */}
-              {totalPayablesPaid > 0 && (
+              {/* Payables */}
+              {totalPayables > 0 && (
                 <div className="flex flex-col gap-0.5 items-end w-full text-muted-foreground mt-3">
-                  <span className="font-medium text-foreground">Payables (Paid)</span>
-                  {perClientPayablesPaid.map(([id, cost]) => (
+                  <span className="font-medium text-foreground">Payables</span>
+                  {perClientPayables.map(([id, cost]) => (
                     <div key={id} className="flex items-baseline gap-2">
                       <span>{getClientName(id)}</span>
                       <span className="font-mono">&minus;{formatCurrency(cost)}</span>
                     </div>
                   ))}
                   <div className="border-t border-border pt-0.5 w-full text-right">
-                    <span className="font-mono font-semibold">&minus;{formatCurrency(totalPayablesPaid)}</span>
+                    <span className="font-mono font-semibold">&minus;{formatCurrency(totalPayables)}</span>
                   </div>
                 </div>
               )}
@@ -893,7 +868,7 @@ export function ReportsSection() {
               {/* Grand Total */}
               <div className="mt-3 border-t-2 border-border pt-1 w-full text-right">
                 <span className="font-mono font-bold text-primary">
-                  {formatCurrency(totalTimeCost + totalSubsAnnual - cygnetDeduction - totalPayablesPaid)}
+                  {formatCurrency(totalTimeCost + totalSubsAnnual - cygnetDeduction - totalPayables)}
                 </span>
               </div>
             </div>

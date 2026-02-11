@@ -44,10 +44,8 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
         }, 0)
         setSubscriptionMonthly(monthly)
 
-        const paid = payables
-          .filter((p) => p.paid)
-          .reduce((sum, p) => sum + p.amount, 0)
-        setPayablesPaid(paid)
+        const payablesTotal = payables.reduce((sum, p) => sum + p.amount, 0)
+        setPayablesPaid(payablesTotal)
       } catch {
         // Sections already show their own errors
       } finally {
@@ -91,7 +89,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
                 )}
                 {payablesPaid > 0 && (
                   <div className="flex items-baseline gap-2">
-                    <span>{clientId === "nextier" ? "Proceeds" : "Payables (Paid)"}</span>
+                    <span>{clientId === "nextier" ? "Proceeds" : "Payables"}</span>
                     <span className="font-mono">{clientId === "nextier" ? "" : "\u2212"}{formatCurrency(payablesPaid)}</span>
                   </div>
                 )}

@@ -340,6 +340,29 @@ export async function deletePayableByMatch(
   if (error) throw error
 }
 
+export async function updateNextierMirror(
+  supabase: SupabaseClient,
+  oldDescription: string,
+  oldAmount: number,
+  oldDate: string,
+  updated: { description: string; amount: number; date: string; notes: string; attachments: Attachment[] },
+): Promise<void> {
+  const { error } = await supabase
+    .from("payables")
+    .update({
+      description: updated.description,
+      amount: updated.amount,
+      date: updated.date,
+      notes: updated.notes,
+      attachments: updated.attachments,
+    })
+    .eq("client_id", "nextier")
+    .eq("description", oldDescription)
+    .eq("amount", oldAmount)
+    .eq("date", oldDate)
+  if (error) throw error
+}
+
 // ── Attachment Storage ──────────────────────────────────────────────
 
 export async function uploadAttachment(

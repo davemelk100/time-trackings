@@ -22,7 +22,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import type { Payable, Attachment } from "@/lib/project-data";
 import {
   fetchPayables,
@@ -30,6 +29,7 @@ import {
   upsertPayable,
   deletePayable as deletePayableApi,
   deletePayableByMatch,
+  updateNextierMirror,
   uploadAttachment,
   getAttachmentUrl,
   deleteAttachment,
@@ -124,13 +124,7 @@ export function PayablesSection({
     };
   }, [clientId, supabase, hourlyRate, flatRate]);
 
-  const totalOwed = payables
-    .filter((p) => !p.paid)
-    .reduce((sum, p) => sum + p.amount, 0);
-
-  const totalPaid = payables
-    .filter((p) => p.paid)
-    .reduce((sum, p) => sum + p.amount, 0);
+  const total = payables.reduce((sum, p) => sum + p.amount, 0);
 
   const openAdd = useCallback(() => {
     setEditingId(null);
@@ -202,6 +196,17 @@ export function PayablesSection({
           prev.map((p) => (p.id === editingId ? updated : p)),
         );
         await upsertPayable(supabase, updated, clientId);
+
+        // Sync changes to the Nextier mirror
+        if (clientId !== "nextier" && existing) {
+          await updateNextierMirror(supabase, existing.description, existing.amount, existing.date, {
+            description: updated.description,
+            amount: updated.amount,
+            date: updated.date,
+            notes: updated.notes,
+            attachments: finalAttachments,
+          });
+        }
       } else {
         const newPayable: Payable = {
           id: payableId,
@@ -226,7 +231,7 @@ export function PayablesSection({
             paid: true,
             paidDate: todayISO(),
             notes: form.notes,
-            attachments: [],
+            attachments: finalAttachments,
           };
           await upsertPayable(supabase, nextierPayable, "nextier");
         }
@@ -281,37 +286,6 @@ export function PayablesSection({
     [payables, supabase],
   );
 
-  const togglePaid = useCallback(
-    async (p: Payable) => {
-      const newPaid = !p.paid;
-      const updated: Payable = {
-        ...p,
-        paid: newPaid,
-        paidDate: newPaid ? todayISO() : "",
-        attachments: p.attachments ?? [],
-      };
-      setPayables((prev) =>
-        prev.map((item) => (item.id === p.id ? updated : item)),
-      );
-
-      try {
-        await upsertPayable(supabase, updated, clientId);
-        onPayablesChange?.();
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to update payable",
-        );
-        try {
-          const rows = await fetchPayables(supabase, clientId);
-          setPayables(rows);
-        } catch {
-          /* keep error visible */
-        }
-      }
-    },
-    [supabase, clientId],
-  );
-
   if (!loaded) return null;
 
   return (
@@ -352,10 +326,8 @@ export function PayablesSection({
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Paid Date</TableHead>
                   <TableHead>Notes</TableHead>
-                  {editMode && (
+                  {editMode && clientId !== "nextier" && (
                     <TableHead className="w-[100px] text-right">
                       Actions
                     </TableHead>
@@ -366,7 +338,7 @@ export function PayablesSection({
                 {payables.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={editMode ? 7 : 6}
+                      colSpan={(editMode && clientId !== "nextier") ? 5 : 4}
                       className="py-8 text-center text-muted-foreground"
                     >
                       {clientId === "nextier"
@@ -400,51 +372,30 @@ export function PayablesSection({
                           )}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <button type="button" onClick={() => togglePaid(p)}>
-                          <Badge
-                            variant={p.paid ? "default" : "secondary"}
-                            className="cursor-pointer select-none"
-                          >
-                            {p.paid ? "Paid" : "Unpaid"}
-                          </Badge>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {p.paidDate
-                          ? new Date(
-                              p.paidDate + "T00:00:00",
-                            ).toLocaleDateString()
-                          : "\u2014"}
-                      </TableCell>
                       <TableCell className="max-w-[200px] text-muted-foreground">
                         {p.notes || "\u2014"}
                       </TableCell>
-                      {editMode && (
+                      {editMode && clientId !== "nextier" && (
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {clientId !== "nextier" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openEdit(p)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                <span className="sr-only">Edit</span>
-                              </Button>
-                            )}
-                            {clientId !== "nextier" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(p.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(p)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(p.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
                           </div>
                         </TableCell>
                       )}
@@ -456,21 +407,12 @@ export function PayablesSection({
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={2} className="font-semibold">
-                      Total Owed
+                      Total
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold text-primary">
-                      {formatCurrency(totalOwed)}
+                      {formatCurrency(total)}
                     </TableCell>
-                    <TableCell colSpan={editMode ? 4 : 3} />
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={2} className="font-semibold">
-                      Total Paid
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-muted-foreground">
-                      {formatCurrency(totalPaid)}
-                    </TableCell>
-                    <TableCell colSpan={editMode ? 4 : 3} />
+                    <TableCell colSpan={(editMode && clientId !== "nextier") ? 2 : 1} />
                   </TableRow>
                 </TableFooter>
               )}

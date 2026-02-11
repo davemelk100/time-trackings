@@ -68,5 +68,4 @@ INSERT INTO subscriptions (client_id, name, category, billing_cycle, amount, ren
 -- Insert clients
 INSERT INTO clients (id, name, hourly_rate, flat_rate) VALUES
 ('cygnet', 'Cygnet Institute', 62, NULL),
-('client-b', 'Mind Flip', 50, NULL),
-('client-c', 'A. Lawrence', NULL, NULL);
+('client-b', 'Mind Flip', 50, NULL);

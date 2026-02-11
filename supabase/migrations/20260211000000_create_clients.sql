@@ -8,6 +8,5 @@ CREATE TABLE IF NOT EXISTS clients (
 
 INSERT INTO clients (id, name, hourly_rate, flat_rate) VALUES
 ('cygnet', 'Cygnet Institute', 62, NULL),
-('client-b', 'Mind Flip', 50, NULL),
-('client-c', 'A. Lawrence', NULL, NULL)
+('client-b', 'Mind Flip', 50, NULL)
 ON CONFLICT (id) DO NOTHING;

@@ -10,7 +10,7 @@ export function createClient() {
 
 // ── Clients CRUD ────────────────────────────────────────────────────
 
-interface ClientRow {
+export interface ClientRow {
   id: string
   name: string
   hourly_rate: number | null
@@ -18,7 +18,7 @@ interface ClientRow {
   created_at: string
 }
 
-function rowToClient(row: ClientRow): Client {
+export function rowToClient(row: ClientRow): Client {
   return {
     id: row.id,
     name: row.name,
@@ -57,7 +57,7 @@ export async function deleteClient(supabase: SupabaseClient, id: string): Promis
 
 // ── snake_case ↔ camelCase mappers ──────────────────────────────────
 
-interface TimeEntryRow {
+export interface TimeEntryRow {
   id: string
   client_id: string
   date: string
@@ -70,7 +70,7 @@ interface TimeEntryRow {
   attachments: Attachment[]
 }
 
-interface SubscriptionRow {
+export interface SubscriptionRow {
   id: string
   client_id: string
   name: string
@@ -82,7 +82,7 @@ interface SubscriptionRow {
   attachments: Attachment[]
 }
 
-function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
+export function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
   return {
     id: row.id,
     date: row.date,
@@ -96,7 +96,7 @@ function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
   }
 }
 
-function timeEntryToRow(entry: TimeEntry, clientId: string): Omit<TimeEntryRow, "id"> & { id?: string } {
+export function timeEntryToRow(entry: TimeEntry, clientId: string): Omit<TimeEntryRow, "id"> & { id?: string } {
   return {
     id: entry.id,
     client_id: clientId,
@@ -111,7 +111,7 @@ function timeEntryToRow(entry: TimeEntry, clientId: string): Omit<TimeEntryRow, 
   }
 }
 
-function rowToSubscription(row: SubscriptionRow): Subscription {
+export function rowToSubscription(row: SubscriptionRow): Subscription {
   return {
     id: row.id,
     name: row.name,
@@ -124,7 +124,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
   }
 }
 
-function subscriptionToRow(sub: Subscription, clientId: string): Omit<SubscriptionRow, "id"> & { id?: string } {
+export function subscriptionToRow(sub: Subscription, clientId: string): Omit<SubscriptionRow, "id"> & { id?: string } {
   return {
     id: sub.id,
     client_id: clientId,
@@ -262,7 +262,7 @@ export async function seedSubscriptions(supabase: SupabaseClient, subs: Subscrip
 
 // ── Payables CRUD ───────────────────────────────────────────────────
 
-interface PayableRow {
+export interface PayableRow {
   id: string
   client_id: string
   description: string
@@ -274,7 +274,7 @@ interface PayableRow {
   attachments: Attachment[]
 }
 
-function rowToPayable(row: PayableRow): Payable {
+export function rowToPayable(row: PayableRow): Payable {
   return {
     id: row.id,
     description: row.description,
@@ -287,7 +287,7 @@ function rowToPayable(row: PayableRow): Payable {
   }
 }
 
-function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id"> & { id?: string } {
+export function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id"> & { id?: string } {
   return {
     id: p.id,
     client_id: clientId,

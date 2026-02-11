@@ -85,7 +85,7 @@ function generateTimeOptions() {
 }
 
 /** Convert 24h time string "HH:MM" to a readable 12h label */
-function formatTime12(time24: string): string {
+export function formatTime12(time24: string): string {
   const [hStr, mStr] = time24.split(":");
   const h = parseInt(hStr, 10);
   const period = h >= 12 ? "PM" : "AM";
@@ -94,7 +94,7 @@ function formatTime12(time24: string): string {
 }
 
 /** Calculate hours between two 24h time strings */
-function calcHours(start: string, end: string): number {
+export function calcHours(start: string, end: string): number {
   if (!start || !end) return 0;
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);

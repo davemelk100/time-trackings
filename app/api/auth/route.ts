@@ -11,6 +11,7 @@ const PASSCODE_MAP: Record<string, SessionPayload> = {
   PASSCODE_CYGNET: { role: "client", clientId: "cygnet" },
   PASSCODE_MINDFLIP: { role: "client", clientId: "client-b" },
   PASSCODE_CLIENT_C: { role: "client", clientId: "client-c" },
+  PASSCODE_NEXTIER: { role: "client", clientId: "nextier" },
 }
 
 function matchPasscode(passcode: string): SessionPayload | null {

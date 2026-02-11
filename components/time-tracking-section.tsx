@@ -377,7 +377,7 @@ export function TimeTrackingSection({
               <CardTitle>Invoice Details</CardTitle>
               <span className="text-sm text-muted-foreground">{getReportingPeriod()}</span>
             </div>
-            <div className="flex flex-col gap-0.5 items-center text-center">
+            <div className="flex flex-col gap-0.5 items-start sm:items-center sm:text-center">
               <span className="text-muted-foreground">Payable To</span>
               <span className="font-medium">{timeTrackingMeta.payableTo}</span>
               <span className="text-muted-foreground">
@@ -386,11 +386,11 @@ export function TimeTrackingSection({
                 Waterford, MI 48329
               </span>
             </div>
-            <div className="flex flex-col gap-0.5 items-center text-center">
+            <div className="flex flex-col gap-0.5 items-start sm:items-center sm:text-center">
               <span className="text-muted-foreground">Venmo</span>
               <span className="font-medium">@MelkonianLLC</span>
             </div>
-            <div className="flex flex-col gap-0.5 ml-auto items-center text-center">
+            <div className="flex flex-col gap-0.5 items-start sm:items-center sm:text-center lg:ml-auto">
               <span className="text-muted-foreground">{FLAT_RATE != null ? "Flat Rate" : "Hourly Rate"}</span>
               <span className="font-medium">{FLAT_RATE != null ? formatCurrency(FLAT_RATE) : HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
             </div>

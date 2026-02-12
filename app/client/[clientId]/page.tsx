@@ -112,7 +112,7 @@ export default function ClientPage() {
             {client.id !== "nextier" && (
               <>
                 <TimeTrackingSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} />
-                {client.id !== "mindflip" && (
+                {client.id !== "client-b" && (
                   <SubscriptionsSection editMode={false} clientId={client.id} />
                 )}
               </>

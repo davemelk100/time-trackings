@@ -50,7 +50,7 @@ export function middleware(request: NextRequest) {
   // Client restrictions
   if (session.role === "client" && session.clientId) {
     // Block admin-only routes
-    if (pathname === "/" || pathname === "/reports") {
+    if (pathname === "/" || pathname === "/reports" || pathname === "/archives") {
       return NextResponse.redirect(new URL(`/client/${session.clientId}`, request.url))
     }
 

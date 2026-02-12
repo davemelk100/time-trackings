@@ -415,6 +415,21 @@ export interface Payable {
   attachments: Attachment[]
 }
 
+// ===== Invoices =====
+export interface Invoice {
+  id: string
+  clientId: string
+  invoiceNumber: string
+  periodStart: string
+  periodEnd: string
+  totalTime: number
+  totalSubscriptions: number
+  totalPayables: number
+  grandTotal: number
+  notes: string
+  createdAt: string
+}
+
 // ===== Software Subscriptions =====
 export interface Subscription {
   id: string

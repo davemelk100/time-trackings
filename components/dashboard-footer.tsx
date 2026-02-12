@@ -16,6 +16,8 @@ export function DashboardFooter({ children }: { children?: React.ReactNode }) {
   return (
     <footer className="relative border-t border-border bg-card py-4 text-center text-xs text-muted-foreground print:hidden">
       Melkonian Industries LLC
+      <br />
+      Email <a href="mailto:davemelk@gmail.com" className="underline hover:text-foreground">davemelk@gmail.com</a> with any concerns.
       <div className="absolute left-4 top-1/2 -translate-y-1/2">
         {mounted && (
           <Button

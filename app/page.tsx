@@ -18,11 +18,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Plus } from "lucide-react"
+import { Plus, Archive } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
-import { type Client, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient } from "@/lib/supabase"
+import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
+import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
+import { fetchClients, insertClient, fetchInvoices, createInvoice } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 
 export default function Page() {
@@ -40,6 +50,15 @@ export default function Page() {
   const [saving, setSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [payablesKey, setPayablesKey] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Invoice / archive state
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("current")
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+  const [archiveCopySubs, setArchiveCopySubs] = useState(false)
+  const [archiveNotes, setArchiveNotes] = useState("")
+  const [archiving, setArchiving] = useState(false)
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -76,7 +95,52 @@ export default function Page() {
     return () => { cancelled = true }
   }, [supabase])
 
+  // Fetch invoices when active client changes
+  useEffect(() => {
+    if (!activeClientId) return
+    let cancelled = false
+
+    async function loadInvoices() {
+      try {
+        const inv = await fetchInvoices(supabase, activeClientId)
+        if (!cancelled) {
+          setInvoices(inv)
+          setSelectedPeriod("current")
+        }
+      } catch {
+        if (!cancelled) setInvoices([])
+      }
+    }
+
+    loadInvoices()
+    return () => { cancelled = true }
+  }, [activeClientId, supabase, refreshKey])
+
   const activeClient = clients.find((c) => c.id === activeClientId) ?? clients[0]
+  const selectedInvoice = selectedPeriod !== "current"
+    ? invoices.find((inv) => inv.id === selectedPeriod) ?? null
+    : null
+
+  async function handleArchive() {
+    if (!activeClient) return
+    setArchiving(true)
+    try {
+      await createInvoice(supabase, activeClient.id, {
+        copySubscriptionsForward: archiveCopySubs,
+        notes: archiveNotes,
+      })
+      setArchiveDialogOpen(false)
+      setArchiveNotes("")
+      setArchiveCopySubs(false)
+      setRefreshKey((k) => k + 1)
+      setPayablesKey((k) => k + 1)
+      setSelectedPeriod("current")
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Failed to create invoice")
+    } finally {
+      setArchiving(false)
+    }
+  }
 
   async function handleAddClient() {
     if (!newName.trim()) return
@@ -141,17 +205,43 @@ export default function Page() {
             </Button>
           </div>
           <span className="hidden print:block text-lg font-semibold">{activeClient?.name}</span>
+          <Button onClick={() => setArchiveDialogOpen(true)} variant="default" size="sm" className="gap-1.5 shrink-0 print:hidden">
+            <Archive className="h-4 w-4" />
+            New Invoice
+          </Button>
         </div>
-        {activeClient && (
+        {activeClient && invoices.length > 0 && (
+          <div className="flex items-center gap-3 print:hidden">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Current Period</SelectItem>
+                {invoices.map((inv) => (
+                  <SelectItem key={inv.id} value={inv.id}>
+                    {inv.invoiceNumber} ({inv.periodStart && inv.periodEnd
+                      ? `${new Date(inv.periodStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(inv.periodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                      : "N/A"})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {activeClient && selectedInvoice ? (
+          <ArchivedInvoiceView invoice={selectedInvoice} />
+        ) : activeClient && (
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} />
-                <SubscriptionsSection editMode={editMode} clientId={activeClient.id} />
+                <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} />
+                <SubscriptionsSection editMode={editMode} clientId={activeClient.id} refreshKey={refreshKey} />
               </>
             )}
             <PayablesSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
-            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey} />
+            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} />
+            {/* New Invoice button moved to top bar */}
           </>
         )}
       </main>
@@ -166,6 +256,46 @@ export default function Page() {
           aria-label={editMode ? "Disable editing" : "Enable editing"}
         />
       </DashboardFooter>
+
+      {/* Archive / New Invoice Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create Invoice</DialogTitle>
+            <DialogDescription>
+              Archive the current period data into a new invoice. All current entries, subscriptions, and payables will be stamped to this invoice.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="copy-subs"
+                checked={archiveCopySubs}
+                onCheckedChange={(checked) => setArchiveCopySubs(checked === true)}
+              />
+              <Label htmlFor="copy-subs">Copy subscriptions to new period</Label>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="archive-notes">Notes</Label>
+              <Textarea
+                id="archive-notes"
+                placeholder="Optional invoice notes..."
+                rows={3}
+                value={archiveNotes}
+                onChange={(e) => setArchiveNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleArchive} disabled={archiving}>
+              {archiving ? "Creating..." : "Create Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Client Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

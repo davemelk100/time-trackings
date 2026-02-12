@@ -33,14 +33,12 @@ import {
 import {
   type TimeEntry,
   type Attachment,
-  defaultTimeEntries,
   timeTrackingMeta,
 } from "@/lib/project-data";
 import {
   fetchTimeEntries,
   upsertTimeEntry,
   deleteTimeEntry as deleteTimeEntryApi,
-  seedTimeEntries,
   uploadAttachment,
   getAttachmentUrl,
   deleteAttachment,
@@ -125,11 +123,13 @@ export function TimeTrackingSection({
   clientId = "cygnet",
   hourlyRate = null,
   flatRate = null,
+  refreshKey = 0,
 }: {
   editMode?: boolean;
   clientId?: string;
   hourlyRate?: number | null;
   flatRate?: number | null;
+  refreshKey?: number;
 }) {
   const { supabase } = useAuth();
   const HOURLY_RATE = hourlyRate;
@@ -164,15 +164,8 @@ export function TimeTrackingSection({
 
     async function load() {
       try {
-        let rows = await fetchTimeEntries(supabase, clientId);
+        const rows = await fetchTimeEntries(supabase, clientId);
         if (cancelled) return;
-
-        // Seed defaults for the cygnet client on first use
-        if (rows.length === 0 && clientId === "cygnet") {
-          await seedTimeEntries(supabase, defaultTimeEntries, clientId);
-          rows = await fetchTimeEntries(supabase, clientId);
-          if (cancelled) return;
-        }
 
         setEntries(rows);
       } catch (err: unknown) {
@@ -194,14 +187,16 @@ export function TimeTrackingSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase]);
+  }, [clientId, supabase, refreshKey]);
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-  const totalCost = FLAT_RATE != null
-    ? FLAT_RATE
-    : HOURLY_RATE != null
-      ? totalHours * HOURLY_RATE
-      : null;
+  const totalCost = entries.length === 0
+    ? null
+    : FLAT_RATE != null
+      ? FLAT_RATE
+      : HOURLY_RATE != null
+        ? totalHours * HOURLY_RATE
+        : null;
 
   const calculatedHours = calcHours(form.startTime, form.endTime);
 
@@ -436,9 +431,9 @@ export function TimeTrackingSection({
                     colSpan={7}
                     className="py-8 text-center text-muted-foreground"
                   >
-                    {
-                      'No time entries yet. Click "Add Entry" to start tracking.'
-                    }
+                    {editMode
+                      ? 'No time entries yet. Click "Add Entry" to start tracking.'
+                      : 'No time entries yet.'}
                   </TableCell>
                 </TableRow>
               ) : (

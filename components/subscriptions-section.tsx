@@ -32,14 +32,12 @@ import {
 import {
   type Subscription,
   type Attachment,
-  defaultSubscriptions,
   subscriptionCategories,
 } from "@/lib/project-data";
 import {
   fetchSubscriptions,
   upsertSubscription,
   deleteSubscription as deleteSubscriptionApi,
-  seedSubscriptions,
   uploadAttachment,
   getAttachmentUrl,
   deleteAttachment,
@@ -69,9 +67,11 @@ const emptySubscription: Omit<Subscription, "id"> = {
 export function SubscriptionsSection({
   editMode = false,
   clientId = "cygnet",
+  refreshKey = 0,
 }: {
   editMode?: boolean;
   clientId?: string;
+  refreshKey?: number;
 }) {
   const { supabase } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -101,15 +101,8 @@ export function SubscriptionsSection({
 
     async function load() {
       try {
-        let rows = await fetchSubscriptions(supabase, clientId);
+        const rows = await fetchSubscriptions(supabase, clientId);
         if (cancelled) return;
-
-        // Seed defaults for the cygnet client on first use
-        if (rows.length === 0 && clientId === "cygnet") {
-          await seedSubscriptions(supabase, defaultSubscriptions, clientId);
-          rows = await fetchSubscriptions(supabase, clientId);
-          if (cancelled) return;
-        }
 
         setSubscriptions(rows);
       } catch (err) {
@@ -126,7 +119,7 @@ export function SubscriptionsSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase]);
+  }, [clientId, supabase, refreshKey]);
 
   const totalMonthly = subscriptions.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -309,8 +302,9 @@ export function SubscriptionsSection({
                       colSpan={8}
                       className="py-8 text-center text-muted-foreground"
                     >
-                      No subscriptions yet. Click &quot;Add Subscription&quot;
-                      to get started.
+                      {editMode
+                        ? 'No subscriptions yet. Click "Add Subscription" to get started.'
+                        : 'No subscriptions yet.'}
                     </TableCell>
                   </TableRow>
                 ) : (

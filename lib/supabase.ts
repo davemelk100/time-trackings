@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { TimeEntry, Subscription, Attachment, Client, Payable } from "./project-data"
+import type { TimeEntry, Subscription, Attachment, Client, Payable, Invoice } from "./project-data"
 
 export function createClient() {
   return createSupabaseClient(
@@ -156,6 +156,7 @@ export async function fetchAllTimeEntries(supabase: SupabaseClient): Promise<Tim
   const { data, error } = await supabase
     .from("time_entries")
     .select("*")
+    .is("invoice_id", null)
     .order("date", { ascending: false })
 
   if (error) throw error
@@ -169,6 +170,7 @@ export async function fetchAllSubscriptions(supabase: SupabaseClient): Promise<S
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
+    .is("invoice_id", null)
     .order("name", { ascending: true })
 
   if (error) throw error
@@ -182,6 +184,7 @@ export async function fetchAllPayables(supabase: SupabaseClient): Promise<Payabl
   const { data, error } = await supabase
     .from("payables")
     .select("*")
+    .is("invoice_id", null)
     .order("date", { ascending: false })
 
   if (error) throw error
@@ -198,6 +201,7 @@ export async function fetchTimeEntries(supabase: SupabaseClient, clientId: strin
     .from("time_entries")
     .select("*")
     .eq("client_id", clientId)
+    .is("invoice_id", null)
     .order("date", { ascending: true })
 
   if (error) throw error
@@ -233,6 +237,7 @@ export async function fetchSubscriptions(supabase: SupabaseClient, clientId: str
     .from("subscriptions")
     .select("*")
     .eq("client_id", clientId)
+    .is("invoice_id", null)
     .order("name", { ascending: true })
 
   if (error) throw error
@@ -306,6 +311,7 @@ export async function fetchPayables(supabase: SupabaseClient, clientId: string):
     .from("payables")
     .select("*")
     .eq("client_id", clientId)
+    .is("invoice_id", null)
     .order("date", { ascending: false })
 
   if (error) throw error
@@ -400,4 +406,233 @@ export async function deleteAllAttachments(supabase: SupabaseClient, attachments
   const paths = attachments.map((a) => a.path)
   const { error } = await supabase.storage.from("receipts").remove(paths)
   if (error) throw error
+}
+
+// ── Invoices CRUD ───────────────────────────────────────────────────
+
+export interface InvoiceRow {
+  id: string
+  client_id: string
+  invoice_number: string
+  period_start: string | null
+  period_end: string | null
+  total_time: number
+  total_subscriptions: number
+  total_payables: number
+  grand_total: number
+  notes: string
+  created_at: string
+}
+
+export function rowToInvoice(row: InvoiceRow): Invoice {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    invoiceNumber: row.invoice_number,
+    periodStart: row.period_start ?? "",
+    periodEnd: row.period_end ?? "",
+    totalTime: Number(row.total_time),
+    totalSubscriptions: Number(row.total_subscriptions),
+    totalPayables: Number(row.total_payables),
+    grandTotal: Number(row.grand_total),
+    notes: row.notes,
+    createdAt: row.created_at,
+  }
+}
+
+export async function fetchInvoices(supabase: SupabaseClient, clientId: string): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return (data as InvoiceRow[]).map(rowToInvoice)
+}
+
+export async function fetchInvoice(supabase: SupabaseClient, invoiceId: string): Promise<Invoice | null> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("id", invoiceId)
+    .single()
+
+  if (error) {
+    if (error.code === "PGRST116") return null
+    throw error
+  }
+  return rowToInvoice(data as InvoiceRow)
+}
+
+export async function fetchAllInvoices(supabase: SupabaseClient): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return (data as InvoiceRow[]).map(rowToInvoice)
+}
+
+export async function fetchTimeEntriesByInvoice(supabase: SupabaseClient, invoiceId: string): Promise<TimeEntry[]> {
+  const { data, error } = await supabase
+    .from("time_entries")
+    .select("*")
+    .eq("invoice_id", invoiceId)
+    .order("date", { ascending: true })
+
+  if (error) throw error
+  return (data as TimeEntryRow[]).map(rowToTimeEntry)
+}
+
+export async function fetchSubscriptionsByInvoice(supabase: SupabaseClient, invoiceId: string): Promise<Subscription[]> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("invoice_id", invoiceId)
+    .order("name", { ascending: true })
+
+  if (error) throw error
+  return (data as SubscriptionRow[]).map(rowToSubscription)
+}
+
+export async function fetchPayablesByInvoice(supabase: SupabaseClient, invoiceId: string): Promise<Payable[]> {
+  const { data, error } = await supabase
+    .from("payables")
+    .select("*")
+    .eq("invoice_id", invoiceId)
+    .order("date", { ascending: false })
+
+  if (error) throw error
+  return (data as PayableRow[]).map(rowToPayable)
+}
+
+export async function createInvoice(
+  supabase: SupabaseClient,
+  clientId: string,
+  options: { copySubscriptionsForward?: boolean; notes?: string } = {},
+): Promise<Invoice> {
+  const { copySubscriptionsForward = false, notes = "" } = options
+
+  // 1. Fetch current-period data + client info
+  const [entries, subs, payables, clients] = await Promise.all([
+    fetchTimeEntries(supabase, clientId),
+    fetchSubscriptions(supabase, clientId),
+    fetchPayables(supabase, clientId),
+    fetchClients(supabase),
+  ])
+
+  const client = clients.find((c) => c.id === clientId)
+  const hourlyRate = client?.hourlyRate ?? null
+  const flatRate = client?.flatRate ?? null
+
+  // 2. Compute snapshot totals
+  const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+  const timeCost = flatRate != null ? flatRate : hourlyRate != null ? totalHours * hourlyRate : 0
+
+  const monthlySubTotal = subs.reduce((sum, s) => {
+    if (s.billingCycle === "monthly") return sum + s.amount
+    return sum + s.amount / 12
+  }, 0)
+  const subscriptionAnnual = monthlySubTotal * 12
+
+  const payablesTotal = payables.reduce((sum, p) => sum + p.amount, 0)
+
+  const isNextier = clientId === "nextier"
+  const grandTotal = isNextier ? payablesTotal : timeCost + subscriptionAnnual - payablesTotal
+
+  // 3. Derive period start from earliest entry date
+  const dates = entries.map((e) => e.date).filter(Boolean).sort()
+  const periodStart = dates[0] || new Date().toISOString().slice(0, 10)
+  const periodEnd = new Date().toISOString().slice(0, 10)
+
+  // 4. Generate invoice number
+  const { count } = await supabase
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("client_id", clientId)
+  const num = ((count ?? 0) + 1).toString().padStart(3, "0")
+  const invoiceNumber = `INV-${clientId}-${num}`
+
+  // 5. Insert invoice row
+  const { data: invoiceData, error: invoiceError } = await supabase
+    .from("invoices")
+    .insert({
+      client_id: clientId,
+      invoice_number: invoiceNumber,
+      period_start: periodStart,
+      period_end: periodEnd,
+      total_time: Math.round(timeCost * 100) / 100,
+      total_subscriptions: Math.round(subscriptionAnnual * 100) / 100,
+      total_payables: Math.round(payablesTotal * 100) / 100,
+      grand_total: Math.round(grandTotal * 100) / 100,
+      notes,
+    })
+    .select()
+    .single()
+
+  if (invoiceError) throw invoiceError
+  const invoice = rowToInvoice(invoiceData as InvoiceRow)
+
+  // 6. Stamp all current-period rows with the new invoice_id
+  const entryIds = entries.map((e) => e.id)
+  const subIds = subs.map((s) => s.id)
+  const payableIds = payables.map((p) => p.id)
+
+  if (entryIds.length > 0) {
+    const { error } = await supabase
+      .from("time_entries")
+      .update({ invoice_id: invoice.id })
+      .in("id", entryIds)
+    if (error) throw error
+  }
+
+  if (subIds.length > 0) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ invoice_id: invoice.id })
+      .in("id", subIds)
+    if (error) throw error
+  }
+
+  if (payableIds.length > 0) {
+    const { error } = await supabase
+      .from("payables")
+      .update({ invoice_id: invoice.id })
+      .in("id", payableIds)
+    if (error) throw error
+
+    // 7. For non-nextier clients, also stamp matching mirrored nextier payables
+    if (clientId !== "nextier") {
+      for (const p of payables) {
+        await supabase
+          .from("payables")
+          .update({ invoice_id: invoice.id })
+          .eq("client_id", "nextier")
+          .eq("description", p.description)
+          .eq("amount", p.amount)
+          .eq("date", p.date)
+          .is("invoice_id", null)
+      }
+    }
+  }
+
+  // 8. Optionally copy subscriptions forward as new current-period entries
+  if (copySubscriptionsForward && subs.length > 0) {
+    const newSubRows = subs.map((s) => ({
+      client_id: clientId,
+      name: s.name,
+      category: s.category,
+      billing_cycle: s.billingCycle,
+      amount: s.amount,
+      renewal_date: s.renewalDate || null,
+      notes: s.notes,
+      attachments: s.attachments ?? [],
+    }))
+    const { error } = await supabase.from("subscriptions").insert(newSubRows)
+    if (error) throw error
+  }
+
+  return invoice
 }

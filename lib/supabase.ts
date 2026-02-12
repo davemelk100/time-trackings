@@ -603,19 +603,6 @@ export async function createInvoice(
       .in("id", payableIds)
     if (error) throw error
 
-    // 7. For non-nextier clients, also stamp matching mirrored nextier payables
-    if (clientId !== "nextier") {
-      for (const p of payables) {
-        await supabase
-          .from("payables")
-          .update({ invoice_id: invoice.id })
-          .eq("client_id", "nextier")
-          .eq("description", p.description)
-          .eq("amount", p.amount)
-          .eq("date", p.date)
-          .is("invoice_id", null)
-      }
-    }
   }
 
   // 8. Optionally copy subscriptions forward as new current-period entries

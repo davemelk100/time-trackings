@@ -325,8 +325,8 @@ export function PayablesSection({
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
                   {editMode && clientId !== "nextier" && (
                     <TableHead className="w-[100px] text-right">
                       Actions
@@ -357,6 +357,9 @@ export function PayablesSection({
                       <TableCell className="font-medium">
                         {p.description}
                       </TableCell>
+                      <TableCell className="max-w-[200px] text-muted-foreground">
+                        {p.notes || "\u2014"}
+                      </TableCell>
                       <TableCell className="text-right font-mono">
                         <span className="inline-flex items-center gap-1.5">
                           {formatCurrency(p.amount)}
@@ -371,9 +374,6 @@ export function PayablesSection({
                             </button>
                           )}
                         </span>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">
-                        {p.notes || "\u2014"}
                       </TableCell>
                       {editMode && clientId !== "nextier" && (
                         <TableCell className="text-right">
@@ -406,13 +406,13 @@ export function PayablesSection({
               {payables.length > 0 && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={2} className="font-semibold">
+                    <TableCell colSpan={3} className="font-semibold">
                       Total
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold text-primary">
                       {formatCurrency(total)}
                     </TableCell>
-                    <TableCell colSpan={(editMode && clientId !== "nextier") ? 2 : 1} />
+                    {editMode && clientId !== "nextier" && <TableCell />}
                   </TableRow>
                 </TableFooter>
               )}

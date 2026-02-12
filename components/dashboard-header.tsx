@@ -9,7 +9,7 @@ import { handlePrint } from "@/lib/print"
 
 export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientName?: string }) {
   const pathname = usePathname()
-  const { signOut, isAdmin } = useAuth()
+  const { signOut, isAdmin, clientId } = useAuth()
 
   const isReports = pathname === "/reports"
   const isArchives = pathname === "/archives"
@@ -65,6 +65,9 @@ export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientNam
               )}
             </nav>
           )}
+          <span className="text-sm text-muted-foreground hidden sm:inline">
+            {isAdmin ? "Admin" : clientName}
+          </span>
           <Button
             variant="outline"
             size="icon"

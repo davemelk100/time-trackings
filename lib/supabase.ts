@@ -375,7 +375,8 @@ export async function uploadAttachment(
   entryId: string,
 ): Promise<Attachment> {
   const timestamp = Date.now()
-  const path = `${clientId}/${entryId}/${timestamp}-${file.name}`
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+  const path = `${clientId}/${entryId}/${timestamp}-${safeName}`
 
   const { error } = await supabase.storage.from("receipts").upload(path, file)
   if (error) throw error

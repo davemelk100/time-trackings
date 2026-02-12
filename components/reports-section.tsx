@@ -758,8 +758,8 @@ export function ReportsSection() {
                     <TableHead>Date</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -774,24 +774,23 @@ export function ReportsSection() {
                       <TableCell className="max-w-[200px]">
                         {p.description}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(p.amount)}
-                      </TableCell>
                       <TableCell className="max-w-[200px] text-muted-foreground">
                         {p.notes || "\u2014"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-destructive">
+                        &minus;{formatCurrency(p.amount)}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">
+                    <TableCell colSpan={4} className="font-semibold">
                       Total
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-primary">
-                      {formatCurrency(totalPayables)}
+                    <TableCell className="text-right font-mono font-semibold text-destructive">
+                      &minus;{formatCurrency(totalPayables)}
                     </TableCell>
-                    <TableCell colSpan={1} />
                   </TableRow>
                 </TableFooter>
               </Table>

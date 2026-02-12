@@ -156,7 +156,6 @@ export async function fetchAllTimeEntries(supabase: SupabaseClient): Promise<Tim
   const { data, error } = await supabase
     .from("time_entries")
     .select("*")
-    .is("invoice_id", null)
     .order("date", { ascending: false })
 
   if (error) throw error
@@ -170,7 +169,6 @@ export async function fetchAllSubscriptions(supabase: SupabaseClient): Promise<S
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
-    .is("invoice_id", null)
     .order("name", { ascending: true })
 
   if (error) throw error
@@ -184,7 +182,6 @@ export async function fetchAllPayables(supabase: SupabaseClient): Promise<Payabl
   const { data, error } = await supabase
     .from("payables")
     .select("*")
-    .is("invoice_id", null)
     .order("date", { ascending: false })
 
   if (error) throw error

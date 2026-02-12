@@ -242,10 +242,11 @@ export function ReportsSection() {
     return copy;
   }, [filteredSubs, subSortKey, subSortDir]);
 
-  // Filtered payables (client + search only)
+  // Filtered payables (client + search only; exclude nextier mirrors to avoid duplicates)
   const filteredPayables = useMemo(() => {
     const q = search.toLowerCase();
     return payables.filter((p) => {
+      if (p.clientId === "nextier") return false;
       if (clientFilter !== "all" && p.clientId !== clientFilter) return false;
       if (
         q &&

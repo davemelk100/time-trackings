@@ -37,7 +37,6 @@ import {
 
 export default function Page() {
   const { supabase } = useAuth()
-  const [editMode, setEditMode] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [activeClientId, setActiveClientId] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -235,27 +234,17 @@ export default function Page() {
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} />
-                <SubscriptionsSection editMode={editMode} clientId={activeClient.id} refreshKey={refreshKey} />
+                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} />
+                <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} />
               </>
             )}
-            <PayablesSection editMode={editMode} clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
+            <PayablesSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
             <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} />
             {/* New Invoice button moved to top bar */}
           </>
         )}
       </main>
-      <DashboardFooter>
-        <button
-          onClick={() => setEditMode(!editMode)}
-          className={`absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full transition-colors shadow-[0_0_3px_rgba(0,0,0,0.08)] ${
-            editMode
-              ? "bg-primary"
-              : "bg-card"
-          }`}
-          aria-label={editMode ? "Disable editing" : "Enable editing"}
-        />
-      </DashboardFooter>
+      <DashboardFooter />
 
       {/* Archive / New Invoice Dialog */}
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>

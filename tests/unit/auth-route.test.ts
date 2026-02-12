@@ -63,7 +63,7 @@ describe("POST /api/auth", () => {
   it("authenticates mindflip client", async () => {
     const res = await POST(makeRequest({ passcode: "33333" }))
     const body = await res.json()
-    expect(body).toEqual({ role: "client", clientId: "client-b" })
+    expect(body).toEqual({ role: "client", clientId: "mindflip" })
   })
 
   it("authenticates nextier client", async () => {

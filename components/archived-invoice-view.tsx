@@ -22,8 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Pencil } from "lucide-react"
-import type { Invoice, TimeEntry, Subscription, Payable } from "@/lib/project-data"
+import { Pencil, ExternalLink } from "lucide-react"
+import type { Invoice, TimeEntry, Subscription, Payable, Link } from "@/lib/project-data"
 import {
   fetchTimeEntriesByInvoice,
   fetchSubscriptionsByInvoice,
@@ -47,6 +47,8 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
   const [payables, setPayables] = useState<Payable[]>([])
   const [loaded, setLoaded] = useState(false)
   const [rateDialogOpen, setRateDialogOpen] = useState(false)
+  const [viewLinksData, setViewLinksData] = useState<Link[]>([])
+  const [viewLinksOpen, setViewLinksOpen] = useState(false)
   const [rateHourly, setRateHourly] = useState("")
   const [rateFlat, setRateFlat] = useState("")
   const [rateSaving, setRateSaving] = useState(false)
@@ -88,8 +90,9 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
 
+  function fmtDate(s: string) { const d = new Date(s + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; }
   const periodLabel = invoice.periodStart && invoice.periodEnd
-    ? `${new Date(invoice.periodStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${new Date(invoice.periodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+    ? `${fmtDate(invoice.periodStart)} - ${fmtDate(invoice.periodEnd)}`
     : "N/A"
 
   return (
@@ -100,10 +103,18 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
           <CardTitle>{invoice.invoiceNumber}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 text-sm">
             <div>
               <span className="text-muted-foreground">Period</span>
               <p className="font-medium">{periodLabel}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Hourly Rate</span>
+              <p className="font-mono font-medium">
+                {totalHours > 0
+                  ? `${formatCurrency(invoice.totalTime / totalHours)}/hr`
+                  : "\u2014"}
+              </p>
             </div>
             <div>
               <span className="text-muted-foreground">Time</span>
@@ -150,27 +161,36 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="w-[110px]">Date</TableHead>
                     <TableHead>Tasks</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead>Time Range</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
+                    <TableHead className="w-[80px] text-right">Hours</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="whitespace-nowrap font-medium">
-                        {new Date(entry.date + "T00:00:00").toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {fmtDate(entry.date)}
                       </TableCell>
-                      <TableCell className="max-w-[280px] text-muted-foreground">{entry.tasks}</TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">{entry.notes || "\u2014"}</TableCell>
+                      <TableCell className="max-w-[220px] text-muted-foreground">{entry.tasks}</TableCell>
+                      <TableCell className="max-w-[160px] text-muted-foreground">{entry.notes || "\u2014"}</TableCell>
                       <TableCell className="whitespace-nowrap">{entry.timeRange}</TableCell>
-                      <TableCell className="text-right font-mono">{entry.totalHours.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        <span className="inline-flex items-center gap-1">
+                          {entry.totalHours.toFixed(2)}
+                          {entry.links && entry.links.length > 0 && (
+                            <button
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => { setViewLinksData(entry.links!); setViewLinksOpen(true); }}
+                              aria-label="View links"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </span>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -201,10 +221,10 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Billing Cycle</TableHead>
-                    <TableHead>Renewal Date</TableHead>
+                    <TableHead className="w-[110px]">Billing Cycle</TableHead>
+                    <TableHead className="w-[110px]">Renewal Date</TableHead>
                     <TableHead>Notes</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[100px] text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -214,15 +234,24 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                       <TableCell className="text-muted-foreground">{sub.category}</TableCell>
                       <TableCell className="capitalize">{sub.billingCycle}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {sub.renewalDate
-                          ? new Date(sub.renewalDate + "T00:00:00").toLocaleDateString()
-                          : "\u2014"}
+                        {sub.renewalDate ? fmtDate(sub.renewalDate) : "\u2014"}
                       </TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">{sub.notes || "\u2014"}</TableCell>
+                      <TableCell className="max-w-[160px] text-muted-foreground">{sub.notes || "\u2014"}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(sub.amount)}
-                        <span className="ml-1 text-muted-foreground">
-                          /{sub.billingCycle === "monthly" ? "mo" : "yr"}
+                        <span className="inline-flex items-center gap-1">
+                          {formatCurrency(sub.amount)}
+                          <span className="text-muted-foreground">
+                            /{sub.billingCycle === "monthly" ? "mo" : "yr"}
+                          </span>
+                          {sub.links && sub.links.length > 0 && (
+                            <button
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => { setViewLinksData(sub.links!); setViewLinksOpen(true); }}
+                              aria-label="View links"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </span>
                       </TableCell>
                     </TableRow>
@@ -245,9 +274,9 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="w-[110px]">Date</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[100px] text-right">Amount</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -255,13 +284,24 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                   {payables.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="text-muted-foreground">
-                        {p.date
-                          ? new Date(p.date + "T00:00:00").toLocaleDateString()
-                          : "\u2014"}
+                        {p.date ? fmtDate(p.date) : "\u2014"}
                       </TableCell>
                       <TableCell className="font-medium">{p.description}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(p.amount)}</TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">{p.notes || "\u2014"}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        <span className="inline-flex items-center gap-1">
+                          {formatCurrency(p.amount)}
+                          {p.links && p.links.length > 0 && (
+                            <button
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => { setViewLinksData(p.links!); setViewLinksOpen(true); }}
+                              aria-label="View links"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-[160px] text-muted-foreground">{p.notes || "\u2014"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -315,6 +355,27 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
           </div>
         </CardContent>
       </Card>
+
+      {/* View Links Dialog */}
+      <Dialog open={viewLinksOpen} onOpenChange={setViewLinksOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Links</DialogTitle>
+            <DialogDescription>{viewLinksData.length} link(s)</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {viewLinksData.map((link, idx) => (
+              <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                {link.label || link.url}
+              </a>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLinksOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Rate Dialog */}
       {onInvoiceUpdate && (

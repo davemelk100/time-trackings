@@ -415,6 +415,7 @@ export interface Payable {
   paidDate: string
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 // ===== Invoices =====
@@ -442,6 +443,7 @@ export interface Subscription {
   renewalDate: string
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 export const defaultSubscriptions: Subscription[] = [
@@ -454,6 +456,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "2025-03-01",
     notes: "Next.js hosting and deployment",
     attachments: [],
+    links: [],
   },
   {
     id: "2",
@@ -464,6 +467,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "2025-03-01",
     notes: "Content management system",
     attachments: [],
+    links: [],
   },
   {
     id: "3",
@@ -474,6 +478,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "2025-03-01",
     notes: "Database and auth backend",
     attachments: [],
+    links: [],
   },
   {
     id: "4",
@@ -484,6 +489,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "",
     notes: "Pay-per-transaction, no fixed subscription",
     attachments: [],
+    links: [],
   },
   {
     id: "5",
@@ -494,6 +500,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "",
     notes: "Free tier for analytics",
     attachments: [],
+    links: [],
   },
   {
     id: "6",
@@ -504,6 +511,7 @@ export const defaultSubscriptions: Subscription[] = [
     renewalDate: "2026-02-06",
     notes: "SEO plugin for WordPress",
     attachments: [],
+    links: [],
   },
 ]
 
@@ -515,6 +523,12 @@ export const subscriptionCategories = [
   "Analytics & Monitoring",
   "SEO",
 ]
+
+// ===== Links =====
+export interface Link {
+  url: string
+  label: string
+}
 
 // ===== Attachments =====
 export interface Attachment {
@@ -535,6 +549,7 @@ export interface TimeEntry {
   tasks: string
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 export const defaultTimeEntries: TimeEntry[] = [
@@ -548,6 +563,7 @@ export const defaultTimeEntries: TimeEntry[] = [
     tasks: "Activated the Yoast SEO plugin. Ran SEO scans on pages. Made text and image updates based on SEO scan findings.",
     notes: "Yoast SEO plugin activated",
     attachments: [],
+    links: [],
   },
   {
     id: "2",
@@ -559,6 +575,7 @@ export const defaultTimeEntries: TimeEntry[] = [
     tasks: "Took baseline screenshots of SEO numbers and enabled further Yoast SEO features.",
     notes: "",
     attachments: [],
+    links: [],
   },
 ]
 

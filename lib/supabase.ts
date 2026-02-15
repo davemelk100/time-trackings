@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { TimeEntry, Subscription, Attachment, Client, Payable, Invoice } from "./project-data"
+import type { TimeEntry, Subscription, Attachment, Client, Payable, Invoice, Link } from "./project-data"
 
 export function createClient() {
   return createSupabaseClient(
@@ -59,6 +59,19 @@ export async function deleteClient(supabase: SupabaseClient, id: string): Promis
   if (error) throw error
 }
 
+export async function updateClientRate(
+  supabase: SupabaseClient,
+  clientId: string,
+  hourlyRate: number | null,
+  flatRate: number | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("clients")
+    .update({ hourly_rate: hourlyRate, flat_rate: flatRate })
+    .eq("id", clientId)
+  if (error) throw error
+}
+
 export async function updateClientBillingPeriodStart(
   supabase: SupabaseClient,
   clientId: string,
@@ -96,6 +109,7 @@ export interface TimeEntryRow {
   tasks: string
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 export interface SubscriptionRow {
@@ -108,6 +122,7 @@ export interface SubscriptionRow {
   renewal_date: string | null
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 export function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
@@ -121,6 +136,7 @@ export function rowToTimeEntry(row: TimeEntryRow): TimeEntry {
     tasks: row.tasks,
     notes: row.notes,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    links: Array.isArray(row.links) ? row.links : [],
   }
 }
 
@@ -136,6 +152,7 @@ export function timeEntryToRow(entry: TimeEntry, clientId: string): Omit<TimeEnt
     tasks: entry.tasks,
     notes: entry.notes,
     attachments: entry.attachments ?? [],
+    links: entry.links ?? [],
   }
 }
 
@@ -149,6 +166,7 @@ export function rowToSubscription(row: SubscriptionRow): Subscription {
     renewalDate: row.renewal_date ?? "",
     notes: row.notes,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    links: Array.isArray(row.links) ? row.links : [],
   }
 }
 
@@ -163,6 +181,7 @@ export function subscriptionToRow(sub: Subscription, clientId: string): Omit<Sub
     renewal_date: sub.renewalDate || null,
     notes: sub.notes,
     attachments: sub.attachments ?? [],
+    links: sub.links ?? [],
   }
 }
 
@@ -302,6 +321,7 @@ export interface PayableRow {
   paid_date: string | null
   notes: string
   attachments: Attachment[]
+  links: Link[]
 }
 
 export function rowToPayable(row: PayableRow): Payable {
@@ -314,6 +334,7 @@ export function rowToPayable(row: PayableRow): Payable {
     paidDate: row.paid_date ?? "",
     notes: row.notes,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    links: Array.isArray(row.links) ? row.links : [],
   }
 }
 
@@ -328,6 +349,7 @@ export function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id
     paid_date: p.paidDate || null,
     notes: p.notes,
     attachments: p.attachments ?? [],
+    links: p.links ?? [],
   }
 }
 
@@ -376,7 +398,7 @@ export async function updateNextierMirror(
   oldDescription: string,
   oldAmount: number,
   oldDate: string,
-  updated: { description: string; amount: number; date: string; notes: string; attachments: Attachment[] },
+  updated: { description: string; amount: number; date: string; notes: string; attachments: Attachment[]; links?: Link[] },
 ): Promise<void> {
   const { error } = await supabase
     .from("payables")
@@ -386,6 +408,7 @@ export async function updateNextierMirror(
       date: updated.date,
       notes: updated.notes,
       attachments: updated.attachments,
+      links: updated.links ?? [],
     })
     .eq("client_id", "nextier")
     .eq("description", oldDescription)
@@ -569,6 +592,11 @@ export async function createInvoice(
   const hourlyRate = hourlyRateOverride !== undefined ? hourlyRateOverride : (client?.hourlyRate ?? null)
   const flatRate = flatRateOverride !== undefined ? flatRateOverride : (client?.flatRate ?? null)
 
+  // Guard: don't create an invoice if there's nothing to archive
+  if (entries.length === 0 && subs.length === 0 && payables.length === 0) {
+    throw new Error("Nothing to archive – no time entries, subscriptions, or payables in the current period.")
+  }
+
   // 2. Compute snapshot totals
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
   const timeCost = rateTbd ? 0 : (flatRate != null ? flatRate : hourlyRate != null ? totalHours * hourlyRate : 0)
@@ -658,6 +686,7 @@ export async function createInvoice(
       renewal_date: s.renewalDate || null,
       notes: s.notes,
       attachments: s.attachments ?? [],
+      links: s.links ?? [],
     }))
     const { error } = await supabase.from("subscriptions").insert(newSubRows)
     if (error) throw error

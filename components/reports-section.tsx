@@ -44,11 +44,8 @@ function formatCurrency(n: number) {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const d = new Date(dateStr + "T00:00:00");
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 type TimeSortKey = "date" | "hours" | "cost";
@@ -275,12 +272,6 @@ export function ReportsSection() {
   );
   const totalTimeCost = hourlyCost + flatCost;
 
-  // Cygnet 10% proceeds deduction
-  const cygnetTimeCost = filteredEntries
-    .filter((e) => e.clientId === "cygnet")
-    .reduce((sum, e) => sum + e.totalHours * (getRate(e.clientId) ?? 0), 0);
-  const cygnetDeduction = cygnetTimeCost * 0.1;
-
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
     return sum + s.amount / 12;
@@ -451,20 +442,6 @@ export function ReportsSection() {
             </CardContent>
           </Card>
         )}
-        {cygnetDeduction > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Nextier Proceeds
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold font-mono text-destructive">
-                {formatCurrency(cygnetDeduction)}
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Filters */}
@@ -568,7 +545,7 @@ export function ReportsSection() {
             <TableHeader>
               <TableRow>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none w-[110px]"
                   onClick={() => toggleTimeSort("date")}
                 >
                   Date
@@ -578,14 +555,14 @@ export function ReportsSection() {
                 <TableHead>Tasks</TableHead>
                 <TableHead>Time Range</TableHead>
                 <TableHead
-                  className="cursor-pointer select-none text-right"
+                  className="cursor-pointer select-none text-right w-[80px]"
                   onClick={() => toggleTimeSort("hours")}
                 >
                   Hours
                   <TimeSortIndicator column="hours" />
                 </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none text-right"
+                  className="cursor-pointer select-none text-right w-[100px]"
                   onClick={() => toggleTimeSort("cost")}
                 >
                   Cost
@@ -612,7 +589,7 @@ export function ReportsSection() {
                     <TableCell className="whitespace-nowrap">
                       {getClientName(entry.clientId)}
                     </TableCell>
-                    <TableCell className="max-w-[280px] text-muted-foreground">
+                    <TableCell className="max-w-[220px] text-muted-foreground">
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -677,10 +654,10 @@ export function ReportsSection() {
                   Category
                   <SubSortIndicator column="category" />
                 </TableHead>
-                <TableHead>Billing Cycle</TableHead>
-                <TableHead>Renewal Date</TableHead>
+                <TableHead className="w-[110px]">Billing Cycle</TableHead>
+                <TableHead className="w-[110px]">Renewal Date</TableHead>
                 <TableHead
-                  className="cursor-pointer select-none text-right"
+                  className="cursor-pointer select-none text-right w-[100px]"
                   onClick={() => toggleSubSort("amount")}
                 >
                   Amount
@@ -755,11 +732,11 @@ export function ReportsSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="w-[110px]">Date</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Notes</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right w-[100px]">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -774,7 +751,7 @@ export function ReportsSection() {
                       <TableCell className="max-w-[200px]">
                         {p.description}
                       </TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">
+                      <TableCell className="max-w-[160px] text-muted-foreground">
                         {p.notes || "\u2014"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-destructive">
@@ -816,16 +793,8 @@ export function ReportsSection() {
                     <span className="font-mono">{formatCurrency(cost)}</span>
                   </div>
                 ))}
-                {cygnetDeduction > 0 && (
-                  <div className="flex items-baseline gap-2">
-                    <span>Nextier 10% Proceeds</span>
-                    <span className="font-mono text-destructive">
-                      &minus;{formatCurrency(cygnetDeduction)}
-                    </span>
-                  </div>
-                )}
                 <div className="border-t border-border pt-0.5 w-full text-right">
-                  <span className="font-mono font-semibold">{formatCurrency(totalTimeCost - cygnetDeduction)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(totalTimeCost)}</span>
                 </div>
               </div>
 
@@ -868,7 +837,7 @@ export function ReportsSection() {
               {/* Grand Total */}
               <div className="mt-3 border-t-2 border-border pt-1 w-full text-right">
                 <span className="font-mono font-bold text-primary">
-                  {formatCurrency(totalTimeCost + totalSubsAnnual - cygnetDeduction - totalPayables)}
+                  {formatCurrency(totalTimeCost + totalSubsAnnual - totalPayables)}
                 </span>
               </div>
             </div>

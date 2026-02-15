@@ -48,6 +48,7 @@ describe("rowToTimeEntry", () => {
       tasks: "coding",
       notes: "good day",
       attachments: [{ name: "receipt.pdf", path: "p", size: 1024, uploadedAt: "2025-01-01" }],
+      links: [],
     }
     const result = rowToTimeEntry(row)
     expect(result.startTime).toBe("09:00")
@@ -60,7 +61,7 @@ describe("rowToTimeEntry", () => {
     const row: TimeEntryRow = {
       id: "t2", client_id: "c1", date: "2025-02-06", start_time: "09:00",
       end_time: "17:00", time_range: "", total_hours: "5.5" as any,
-      tasks: "", notes: "", attachments: [],
+      tasks: "", notes: "", attachments: [], links: [],
     }
     expect(rowToTimeEntry(row).totalHours).toBe(5.5)
   })
@@ -69,7 +70,7 @@ describe("rowToTimeEntry", () => {
     const row: TimeEntryRow = {
       id: "t3", client_id: "c1", date: "2025-02-06", start_time: "09:00",
       end_time: "17:00", time_range: "", total_hours: 1,
-      tasks: "", notes: "", attachments: null as any,
+      tasks: "", notes: "", attachments: null as any, links: [],
     }
     expect(rowToTimeEntry(row).attachments).toEqual([])
   })
@@ -80,7 +81,7 @@ describe("timeEntryToRow", () => {
     const entry = {
       id: "t1", date: "2025-02-06", startTime: "09:00", endTime: "17:00",
       timeRange: "9:00 AM - 5:00 PM", totalHours: 8, tasks: "work", notes: "",
-      attachments: [],
+      attachments: [], links: [],
     }
     const row = timeEntryToRow(entry, "client-abc")
     expect(row.client_id).toBe("client-abc")
@@ -95,7 +96,7 @@ describe("rowToSubscription", () => {
     const row: SubscriptionRow = {
       id: "s1", client_id: "c1", name: "Vercel", category: "Hosting",
       billing_cycle: "monthly", amount: 20, renewal_date: "2025-03-01",
-      notes: "", attachments: [],
+      notes: "", attachments: [], links: [],
     }
     expect(rowToSubscription(row).billingCycle).toBe("monthly")
   })
@@ -104,7 +105,7 @@ describe("rowToSubscription", () => {
     const row: SubscriptionRow = {
       id: "s2", client_id: "c1", name: "Tool", category: "Other",
       billing_cycle: "annual", amount: 100, renewal_date: null,
-      notes: "", attachments: [],
+      notes: "", attachments: [], links: [],
     }
     expect(rowToSubscription(row).renewalDate).toBe("")
   })
@@ -113,7 +114,7 @@ describe("rowToSubscription", () => {
     const row = {
       id: "s3", client_id: "c1", name: "X", category: "Y",
       billing_cycle: "monthly" as const, amount: "49.99" as any,
-      renewal_date: null, notes: "", attachments: [],
+      renewal_date: null, notes: "", attachments: [], links: [],
     }
     expect(rowToSubscription(row).amount).toBe(49.99)
   })
@@ -123,7 +124,7 @@ describe("subscriptionToRow", () => {
   it("converts empty renewalDate to null", () => {
     const sub = {
       id: "s1", name: "Tool", category: "Hosting", billingCycle: "monthly" as const,
-      amount: 20, renewalDate: "", notes: "", attachments: [],
+      amount: 20, renewalDate: "", notes: "", attachments: [], links: [],
     }
     expect(subscriptionToRow(sub, "c1").renewal_date).toBeNull()
   })
@@ -131,7 +132,7 @@ describe("subscriptionToRow", () => {
   it("preserves non-empty renewalDate", () => {
     const sub = {
       id: "s2", name: "Tool", category: "Hosting", billingCycle: "monthly" as const,
-      amount: 20, renewalDate: "2025-06-01", notes: "", attachments: [],
+      amount: 20, renewalDate: "2025-06-01", notes: "", attachments: [], links: [],
     }
     expect(subscriptionToRow(sub, "c1").renewal_date).toBe("2025-06-01")
   })
@@ -141,7 +142,7 @@ describe("rowToPayable", () => {
   it("maps paid_date null to empty string", () => {
     const row: PayableRow = {
       id: "p1", client_id: "c1", description: "Test", amount: 100,
-      date: "2025-01-01", paid: false, paid_date: null, notes: "", attachments: [],
+      date: "2025-01-01", paid: false, paid_date: null, notes: "", attachments: [], links: [],
     }
     expect(rowToPayable(row).paidDate).toBe("")
   })
@@ -150,7 +151,7 @@ describe("rowToPayable", () => {
     const row = {
       id: "p2", client_id: "c1", description: "Test", amount: "200.5" as any,
       date: "2025-01-01", paid: true, paid_date: "2025-01-15", notes: "",
-      attachments: [],
+      attachments: [], links: [],
     }
     expect(rowToPayable(row).amount).toBe(200.5)
   })
@@ -159,7 +160,7 @@ describe("rowToPayable", () => {
     const row = {
       id: "p3", client_id: "c1", description: "Test", amount: 50,
       date: "2025-01-01", paid: false, paid_date: null, notes: "",
-      attachments: "invalid" as any,
+      attachments: "invalid" as any, links: [],
     }
     expect(rowToPayable(row).attachments).toEqual([])
   })
@@ -169,7 +170,7 @@ describe("payableToRow", () => {
   it("converts empty paidDate to null and injects clientId", () => {
     const p = {
       id: "p1", description: "Work", amount: 100, date: "2025-01-01",
-      paid: false, paidDate: "", notes: "", attachments: [],
+      paid: false, paidDate: "", notes: "", attachments: [], links: [],
     }
     const row = payableToRow(p, "my-client")
     expect(row.paid_date).toBeNull()
@@ -179,7 +180,7 @@ describe("payableToRow", () => {
   it("preserves non-empty paidDate", () => {
     const p = {
       id: "p2", description: "Work", amount: 100, date: "2025-01-01",
-      paid: true, paidDate: "2025-02-01", notes: "", attachments: [],
+      paid: true, paidDate: "2025-02-01", notes: "", attachments: [], links: [],
     }
     expect(payableToRow(p, "c1").paid_date).toBe("2025-02-01")
   })

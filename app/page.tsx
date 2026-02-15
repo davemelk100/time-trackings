@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 import {
   Select,
@@ -239,7 +239,7 @@ export default function Page() {
                 {activeClient.billingPeriodEnd ? (
                   <div className="flex items-center gap-1.5 rounded-md border bg-muted px-3 py-1.5 text-sm">
                     <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-                    <span>Period ends {new Date(activeClient.billingPeriodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                    <span>Period ends {(() => { const d = new Date(activeClient.billingPeriodEnd + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()}</span>
                     <button
                       className="ml-1 rounded-full p-0.5 hover:bg-background"
                       onClick={async () => {
@@ -287,7 +287,7 @@ export default function Page() {
                 {invoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
                     {inv.invoiceNumber} ({inv.periodStart && inv.periodEnd
-                      ? `${new Date(inv.periodStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(inv.periodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                      ? `${(() => { const d = new Date(inv.periodStart + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()} - ${(() => { const d = new Date(inv.periodEnd + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()}`
                       : "N/A"})
                   </SelectItem>
                 ))}
@@ -297,11 +297,16 @@ export default function Page() {
         )}
         {activeClient && selectedInvoice ? (
           <ArchivedInvoiceView invoice={selectedInvoice} onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
-        ) : activeClient?.billingPeriodStart ? (
+        ) : activeClient?.billingPeriodStart || activeClient?.id === "nextier" ? (
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} />
+                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} onRateChange={async (newHourly, newFlat) => {
+                  await updateClientRate(supabase, activeClient.id, newHourly, newFlat)
+                  const rows = await fetchClients(supabase)
+                  setClients(rows)
+                  setPayablesKey((k) => k + 1)
+                }} />
                 <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} />
               </>
             )}

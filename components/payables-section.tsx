@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { Payable, Attachment } from "@/lib/project-data";
+import type { Payable, Attachment, Link } from "@/lib/project-data";
 import {
   fetchPayables,
   fetchTimeEntries,
@@ -36,7 +36,7 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -55,6 +55,7 @@ const emptyForm = {
   amount: 0,
   date: todayISO(),
   notes: "",
+  links: [] as Link[],
 };
 
 export function PayablesSection({
@@ -82,6 +83,7 @@ export function PayablesSection({
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<Attachment[]>([]);
   const [viewAttachmentsPayable, setViewAttachmentsPayable] = useState<Payable | null>(null);
+  const [viewLinksPayable, setViewLinksPayable] = useState<Payable | null>(null);
   const [tenPercent, setTenPercent] = useState(0);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -93,9 +95,10 @@ export function PayablesSection({
 
     async function load() {
       try {
+        const isNextier = clientId === "nextier";
         const [rows, entries] = await Promise.all([
           fetchPayables(supabase, clientId),
-          fetchTimeEntries(supabase, clientId),
+          isNextier ? Promise.resolve([]) : fetchTimeEntries(supabase, clientId),
         ]);
         if (cancelled) return;
         setPayables(rows);
@@ -133,6 +136,7 @@ export function PayablesSection({
       date: todayISO(),
       amount: tenPercent,
       description: tenPercent > 0 ? "10% of time entries" : "",
+      links: [],
     });
     setPendingFiles([]);
     setExistingAttachments([]);
@@ -147,6 +151,7 @@ export function PayablesSection({
       amount: p.amount,
       date: p.date,
       notes: p.notes,
+      links: p.links ?? [],
     });
     setPendingFiles([]);
     setExistingAttachments(p.attachments ?? []);
@@ -191,6 +196,7 @@ export function PayablesSection({
           paidDate: existing?.paidDate ?? "",
           notes: form.notes,
           attachments: finalAttachments,
+          links: form.links,
         };
         setPayables((prev) =>
           prev.map((p) => (p.id === editingId ? updated : p)),
@@ -205,6 +211,7 @@ export function PayablesSection({
             date: updated.date,
             notes: updated.notes,
             attachments: finalAttachments,
+            links: form.links,
           });
         }
       } else {
@@ -217,6 +224,7 @@ export function PayablesSection({
           paidDate: "",
           notes: form.notes,
           attachments: finalAttachments,
+          links: form.links,
         };
         setPayables((prev) => [newPayable, ...prev]);
         await upsertPayable(supabase, newPayable, clientId);
@@ -232,6 +240,7 @@ export function PayablesSection({
             paidDate: todayISO(),
             notes: form.notes,
             attachments: finalAttachments,
+            links: form.links,
           };
           await upsertPayable(supabase, nextierPayable, "nextier");
         }
@@ -288,7 +297,7 @@ export function PayablesSection({
 
   if (!loaded) return null;
 
-  if (payables.length === 0 && !editMode) return null;
+  if (payables.length === 0 && !editMode && clientId !== "nextier") return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -326,10 +335,10 @@ export function PayablesSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="w-[110px]">Date</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-[100px] text-right">Amount</TableHead>
                   {editMode && clientId !== "nextier" && (
                     <TableHead className="w-[100px] text-right">
                       Actions
@@ -341,14 +350,12 @@ export function PayablesSection({
                 {payables.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="text-muted-foreground">
-                        {p.date
-                          ? new Date(p.date + "T00:00:00").toLocaleDateString()
-                          : "\u2014"}
+                        {p.date ? (() => { const d = new Date(p.date + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })() : "\u2014"}
                       </TableCell>
                       <TableCell className="font-medium">
                         {p.description}
                       </TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">
+                      <TableCell className="max-w-[160px] text-muted-foreground">
                         {p.notes || "\u2014"}
                       </TableCell>
                       <TableCell className="text-right font-mono">
@@ -362,6 +369,11 @@ export function PayablesSection({
                               onClick={() => setViewAttachmentsPayable(p)}
                             >
                               <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {p.links?.length > 0 && (
+                            <button type="button" className="inline-flex text-muted-foreground hover:text-primary" title={`${p.links.length} link(s)`} onClick={() => setViewLinksPayable(p)}>
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </button>
                           )}
                         </span>
@@ -472,6 +484,27 @@ export function PayablesSection({
         </DialogContent>
       </Dialog>
 
+      {/* View Links Dialog */}
+      <Dialog open={viewLinksPayable !== null} onOpenChange={() => setViewLinksPayable(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Links</DialogTitle>
+            <DialogDescription>{viewLinksPayable?.links?.length ?? 0} link(s)</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {viewLinksPayable?.links?.map((link, idx) => (
+              <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                {link.label || link.url}
+              </a>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLinksPayable(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -533,6 +566,21 @@ export function PayablesSection({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Optional notes"
               />
+            </div>
+
+            {/* Links */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Links</Label>
+              {form.links.map((link: Link, idx: number) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input placeholder="Label" value={link.label} onChange={(e) => { const updated = [...form.links]; updated[idx] = { ...updated[idx], label: e.target.value }; setForm({ ...form, links: updated }); }} className="w-1/3" />
+                  <Input placeholder="https://..." value={link.url} onChange={(e) => { const updated = [...form.links]; updated[idx] = { ...updated[idx], url: e.target.value }; setForm({ ...form, links: updated }); }} className="flex-1" />
+                  <button type="button" className="text-destructive hover:text-destructive/80" onClick={() => setForm({ ...form, links: form.links.filter((_: Link, i: number) => i !== idx) })}><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, links: [...form.links, { url: "", label: "" }] })}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Link
+              </Button>
             </div>
 
             {/* Attachments */}

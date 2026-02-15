@@ -32,6 +32,7 @@ import {
 import {
   type Subscription,
   type Attachment,
+  type Link,
   subscriptionCategories,
 } from "@/lib/project-data";
 import {
@@ -44,7 +45,7 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -62,6 +63,7 @@ const emptySubscription: Omit<Subscription, "id"> = {
   renewalDate: "",
   notes: "",
   attachments: [],
+  links: [],
 };
 
 export function SubscriptionsSection({
@@ -90,6 +92,7 @@ export function SubscriptionsSection({
   const [uploading, setUploading] = useState(false);
   const [viewAttachmentsSub, setViewAttachmentsSub] =
     useState<Subscription | null>(null);
+  const [viewLinksSub, setViewLinksSub] = useState<Subscription | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -147,6 +150,7 @@ export function SubscriptionsSection({
       renewalDate: sub.renewalDate,
       notes: sub.notes,
       attachments: sub.attachments ?? [],
+      links: sub.links ?? [],
     });
     setPendingFiles([]);
     setExistingAttachments(sub.attachments ?? []);
@@ -287,10 +291,10 @@ export function SubscriptionsSection({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Billing Cycle</TableHead>
-                  <TableHead>Renewal Date</TableHead>
+                  <TableHead className="w-[110px]">Billing Cycle</TableHead>
+                  <TableHead className="w-[110px]">Renewal Date</TableHead>
                   <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-[100px] text-right">Amount</TableHead>
                   {editMode && (
                     <TableHead className="w-[100px] text-right">
                       Actions
@@ -309,13 +313,9 @@ export function SubscriptionsSection({
                         {sub.billingCycle}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {sub.renewalDate
-                          ? new Date(
-                              sub.renewalDate + "T00:00:00",
-                            ).toLocaleDateString()
-                          : "\u2014"}
+                        {sub.renewalDate ? (() => { const d = new Date(sub.renewalDate + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })() : "\u2014"}
                       </TableCell>
-                      <TableCell className="max-w-[200px]text-muted-foreground">
+                      <TableCell className="max-w-[160px] text-muted-foreground">
                         {sub.notes || "\u2014"}
                       </TableCell>
                       <TableCell className="text-right font-mono">
@@ -332,6 +332,11 @@ export function SubscriptionsSection({
                               onClick={() => setViewAttachmentsSub(sub)}
                             >
                               <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {sub.links?.length > 0 && (
+                            <button type="button" className="inline-flex text-muted-foreground hover:text-primary" title={`${sub.links.length} link(s)`} onClick={() => setViewLinksSub(sub)}>
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </button>
                           )}
                         </span>
@@ -486,6 +491,21 @@ export function SubscriptionsSection({
               />
             </div>
 
+            {/* Links */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Links</Label>
+              {form.links.map((link, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input placeholder="Label" value={link.label} onChange={(e) => { const updated = [...form.links]; updated[idx] = { ...updated[idx], label: e.target.value }; setForm({ ...form, links: updated }); }} className="w-1/3" />
+                  <Input placeholder="https://..." value={link.url} onChange={(e) => { const updated = [...form.links]; updated[idx] = { ...updated[idx], url: e.target.value }; setForm({ ...form, links: updated }); }} className="flex-1" />
+                  <button type="button" className="text-destructive hover:text-destructive/80" onClick={() => setForm({ ...form, links: form.links.filter((_, i) => i !== idx) })}><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, links: [...form.links, { url: "", label: "" }] })}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Link
+              </Button>
+            </div>
+
             {/* Receipts / Attachments */}
             <div className="flex flex-col gap-1.5">
               <Label>Receipts</Label>
@@ -637,6 +657,27 @@ export function SubscriptionsSection({
             >
               Close
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Links Dialog */}
+      <Dialog open={viewLinksSub !== null} onOpenChange={() => setViewLinksSub(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Links</DialogTitle>
+            <DialogDescription>{viewLinksSub?.links?.length ?? 0} link(s)</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {viewLinksSub?.links?.map((link, idx) => (
+              <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                {link.label || link.url}
+              </a>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLinksSub(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

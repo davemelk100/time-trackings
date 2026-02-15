@@ -43,7 +43,7 @@ describe("fetchTimeEntries", () => {
       {
         id: "t1", client_id: "cygnet", date: "2025-02-06",
         start_time: "09:00", end_time: "17:00", time_range: "9:00 AM - 5:00 PM",
-        total_hours: 8, tasks: "coding", notes: "", attachments: [],
+        total_hours: 8, tasks: "coding", notes: "", attachments: [], links: [],
       },
     ])
 
@@ -63,7 +63,7 @@ describe("upsertPayable", () => {
 
     const payable = {
       id: "p1", description: "10% of time", amount: 50, date: "2025-02-01",
-      paid: false, paidDate: "", notes: "auto", attachments: [],
+      paid: false, paidDate: "", notes: "auto", attachments: [], links: [],
     }
 
     await upsertPayable(client, payable, "cygnet")

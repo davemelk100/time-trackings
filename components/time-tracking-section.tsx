@@ -33,6 +33,7 @@ import {
 import {
   type TimeEntry,
   type Attachment,
+  type Link,
   timeTrackingMeta,
 } from "@/lib/project-data";
 import {
@@ -45,7 +46,7 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 
 
@@ -101,6 +102,7 @@ interface EntryForm {
   endTime: string;
   tasks: string;
   notes: string;
+  links: Link[];
 }
 
 const emptyForm: EntryForm = {
@@ -109,6 +111,7 @@ const emptyForm: EntryForm = {
   endTime: "",
   tasks: "",
   notes: "",
+  links: [],
 };
 
 export function TimeTrackingSection({
@@ -118,6 +121,7 @@ export function TimeTrackingSection({
   flatRate = null,
   refreshKey = 0,
   billingPeriodEnd = null,
+  onRateChange,
 }: {
   editMode?: boolean;
   clientId?: string;
@@ -125,10 +129,14 @@ export function TimeTrackingSection({
   flatRate?: number | null;
   refreshKey?: number;
   billingPeriodEnd?: string | null;
+  onRateChange?: (hourlyRate: number | null, flatRate: number | null) => void;
 }) {
   const { supabase } = useAuth();
   const HOURLY_RATE = hourlyRate;
   const FLAT_RATE = flatRate;
+  const [rateDialogOpen, setRateDialogOpen] = useState(false);
+  const [editHourlyRate, setEditHourlyRate] = useState("");
+  const [editFlatRate, setEditFlatRate] = useState("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +154,7 @@ export function TimeTrackingSection({
   const [uploading, setUploading] = useState(false);
   const [viewAttachmentsEntry, setViewAttachmentsEntry] =
     useState<TimeEntry | null>(null);
+  const [viewLinksEntry, setViewLinksEntry] = useState<TimeEntry | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -153,7 +162,7 @@ export function TimeTrackingSection({
     const dates = entries.map((e) => e.date).filter(Boolean).sort();
     if (dates.length === 0) return null;
     const fmt = (d: Date) =>
-      d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
     const startLabel = fmt(new Date(dates[0] + "T00:00:00"));
     if (!billingPeriodEnd) return `${startLabel} - Present`;
     return `${startLabel} - ${fmt(new Date(billingPeriodEnd + "T00:00:00"))}`;
@@ -222,6 +231,7 @@ export function TimeTrackingSection({
       endTime: entry.endTime || "",
       tasks: entry.tasks,
       notes: entry.notes,
+      links: entry.links ?? [],
     });
     setPendingFiles([]);
     setExistingAttachments(entry.attachments ?? []);
@@ -269,6 +279,7 @@ export function TimeTrackingSection({
         tasks: form.tasks,
         notes: form.notes,
         attachments: finalAttachments,
+        links: form.links.filter((l) => l.url.trim()),
       };
 
       if (editingEntry) {
@@ -393,7 +404,22 @@ export function TimeTrackingSection({
             </div>
             <div className="flex flex-col gap-0.5 items-start">
               <span className="text-muted-foreground">{FLAT_RATE != null ? "Flat Rate" : "Hourly Rate"}</span>
-              <span className="font-medium">{FLAT_RATE != null ? formatCurrency(FLAT_RATE) : HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-medium">{FLAT_RATE != null ? formatCurrency(FLAT_RATE) : HOURLY_RATE != null ? formatCurrency(HOURLY_RATE) : "TBD"}</span>
+                {onRateChange && (
+                  <button
+                    className="text-muted-foreground hover:text-primary print:hidden"
+                    onClick={() => {
+                      setEditHourlyRate(HOURLY_RATE != null ? String(HOURLY_RATE) : "");
+                      setEditFlatRate(FLAT_RATE != null ? String(FLAT_RATE) : "");
+                      setRateDialogOpen(true);
+                    }}
+                    aria-label="Edit rate"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -420,12 +446,11 @@ export function TimeTrackingSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
+                <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead>Tasks</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Time Range</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="w-[110px]">Time Range</TableHead>
+                <TableHead className="w-[80px] text-right">Hours</TableHead>
+                <TableHead className="w-[100px] text-right">Cost</TableHead>
                 {editMode && (
                   <TableHead className="w-[100px] text-right">
                     Actions
@@ -437,20 +462,10 @@ export function TimeTrackingSection({
               {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="whitespace-nowrap font-medium">
-                      {new Date(entry.date + "T00:00:00").toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )}
+                      {(() => { const d = new Date(entry.date + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()}
                     </TableCell>
-                    <TableCell className="max-w-[280px]text-muted-foreground">
+                    <TableCell className="max-w-[220px] text-muted-foreground">
                       {entry.tasks}
-                    </TableCell>
-                    <TableCell className="max-w-[200px]text-muted-foreground">
-                      {entry.notes || "\u2014"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {entry.timeRange}
@@ -469,6 +484,16 @@ export function TimeTrackingSection({
                             onClick={() => setViewAttachmentsEntry(entry)}
                           >
                             <Paperclip className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {entry.links?.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex text-muted-foreground hover:text-primary"
+                            title={`${entry.links.length} link(s)`}
+                            onClick={() => setViewLinksEntry(entry)}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </span>
@@ -502,7 +527,7 @@ export function TimeTrackingSection({
             </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={4} className="font-semibold">
+                  <TableCell colSpan={3} className="font-semibold">
                     Total
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
@@ -620,17 +645,6 @@ export function TimeTrackingSection({
                 onChange={(e) => setForm({ ...form, tasks: e.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-notes">Notes</Label>
-              <Textarea
-                id="entry-notes"
-                placeholder="Additional notes (optional)"
-                rows={2}
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
             {/* Receipts / Attachments */}
             <div className="flex flex-col gap-1.5">
               <Label>Receipts</Label>
@@ -704,6 +718,60 @@ export function TimeTrackingSection({
                   </button>
                 </div>
               ))}
+            </div>
+
+            {/* Links */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Links</Label>
+              {form.links.map((link, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Label"
+                    value={link.label}
+                    onChange={(e) => {
+                      const updated = [...form.links];
+                      updated[idx] = { ...updated[idx], label: e.target.value };
+                      setForm({ ...form, links: updated });
+                    }}
+                    className="w-1/3"
+                  />
+                  <Input
+                    placeholder="https://..."
+                    value={link.url}
+                    onChange={(e) => {
+                      const updated = [...form.links];
+                      updated[idx] = { ...updated[idx], url: e.target.value };
+                      setForm({ ...form, links: updated });
+                    }}
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    className="text-destructive hover:text-destructive/80"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        links: form.links.filter((_, i) => i !== idx),
+                      })
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    links: [...form.links, { url: "", label: "" }],
+                  })
+                }
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Link
+              </Button>
             </div>
           </div>
           <DialogFooter>
@@ -817,6 +885,88 @@ export function TimeTrackingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Links Dialog */}
+      <Dialog open={viewLinksEntry !== null} onOpenChange={() => setViewLinksEntry(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Links</DialogTitle>
+            <DialogDescription>{viewLinksEntry?.links?.length ?? 0} link(s)</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {viewLinksEntry?.links?.map((link, idx) => (
+              <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                {link.label || link.url}
+              </a>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLinksEntry(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Rate Dialog */}
+      {onRateChange && (
+        <Dialog open={rateDialogOpen} onOpenChange={setRateDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Update Rate</DialogTitle>
+              <DialogDescription>
+                Set an hourly rate or flat rate for this billing period.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-hourly-rate">Hourly Rate</Label>
+                  <Input
+                    id="edit-hourly-rate"
+                    type="number"
+                    placeholder="e.g. 75"
+                    min="0"
+                    step="0.01"
+                    value={editHourlyRate}
+                    onChange={(e) => setEditHourlyRate(e.target.value)}
+                    disabled={!!editFlatRate.trim()}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-flat-rate">Flat Rate</Label>
+                  <Input
+                    id="edit-flat-rate"
+                    type="number"
+                    placeholder="e.g. 5000"
+                    min="0"
+                    step="0.01"
+                    value={editFlatRate}
+                    onChange={(e) => setEditFlatRate(e.target.value)}
+                    disabled={!!editHourlyRate.trim()}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Set either an hourly rate or a flat rate, not both.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const newHourly = editHourlyRate.trim() ? Number(editHourlyRate) : null;
+                  const newFlat = editFlatRate.trim() ? Number(editFlatRate) : null;
+                  onRateChange(newHourly, newFlat);
+                  setRateDialogOpen(false);
+                }}
+                disabled={!editHourlyRate.trim() && !editFlatRate.trim()}
+              >
+                Update Rate
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

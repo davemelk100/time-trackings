@@ -501,6 +501,22 @@ export async function fetchAllInvoices(supabase: SupabaseClient): Promise<Invoic
   return (data as InvoiceRow[]).map(rowToInvoice)
 }
 
+export async function updateInvoice(
+  supabase: SupabaseClient,
+  invoiceId: string,
+  updates: { total_time?: number; grand_total?: number; notes?: string },
+): Promise<Invoice> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .update(updates)
+    .eq("id", invoiceId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return rowToInvoice(data as InvoiceRow)
+}
+
 export async function fetchTimeEntriesByInvoice(supabase: SupabaseClient, invoiceId: string): Promise<TimeEntry[]> {
   const { data, error } = await supabase
     .from("time_entries")

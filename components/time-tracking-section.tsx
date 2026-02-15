@@ -48,11 +48,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 
-function formatDateRange(startDate: string, endDate: string): string {
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(new Date(startDate + "T00:00:00"))} - ${fmt(new Date(endDate + "T00:00:00"))}`;
-}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -89,14 +84,14 @@ export function formatTime12(time24: string): string {
   return `${hour12}:${mStr} ${period}`;
 }
 
-/** Calculate hours between two 24h time strings */
+/** Calculate hours between two 24h time strings (supports cross-midnight) */
 export function calcHours(start: string, end: string): number {
   if (!start || !end) return 0;
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
   const startMin = sh * 60 + sm;
-  const endMin = eh * 60 + em;
-  if (endMin <= startMin) return 0;
+  let endMin = eh * 60 + em;
+  if (endMin <= startMin) endMin += 24 * 60; // cross-midnight
   return Math.round(((endMin - startMin) / 60) * 100) / 100;
 }
 
@@ -157,8 +152,11 @@ export function TimeTrackingSection({
   const reportingPeriod = useMemo(() => {
     const dates = entries.map((e) => e.date).filter(Boolean).sort();
     if (dates.length === 0) return null;
-    const endDate = billingPeriodEnd || new Date().toISOString().slice(0, 10);
-    return formatDateRange(dates[0], endDate);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const startLabel = fmt(new Date(dates[0] + "T00:00:00"));
+    if (!billingPeriodEnd) return `${startLabel} - Present`;
+    return `${startLabel} - ${fmt(new Date(billingPeriodEnd + "T00:00:00"))}`;
   }, [entries, billingPeriodEnd]);
 
   const timeOptions = useMemo(() => generateTimeOptions(), []);

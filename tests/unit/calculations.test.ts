@@ -12,12 +12,12 @@ describe("calcHours", () => {
     expect(calcHours("15:30", "21:25")).toBe(5.92)
   })
 
-  it("returns 0 when end is before start", () => {
-    expect(calcHours("17:00", "09:00")).toBe(0)
+  it("wraps cross-midnight when end is before start", () => {
+    expect(calcHours("22:00", "02:00")).toBe(4)
   })
 
-  it("returns 0 when times are equal", () => {
-    expect(calcHours("12:00", "12:00")).toBe(0)
+  it("returns 24 when times are equal (full day wrap)", () => {
+    expect(calcHours("12:00", "12:00")).toBe(24)
   })
 
   it("returns 0 for empty strings", () => {

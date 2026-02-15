@@ -2,6 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -11,11 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Pencil } from "lucide-react"
 import type { Invoice, TimeEntry, Subscription, Payable } from "@/lib/project-data"
 import {
   fetchTimeEntriesByInvoice,
   fetchSubscriptionsByInvoice,
   fetchPayablesByInvoice,
+  updateInvoice,
 } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -27,12 +40,16 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function ArchivedInvoiceView({ invoice }: { invoice: Invoice }) {
+export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Invoice; onInvoiceUpdate?: (updated: Invoice) => void }) {
   const { supabase } = useAuth()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [subs, setSubs] = useState<Subscription[]>([])
   const [payables, setPayables] = useState<Payable[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [rateDialogOpen, setRateDialogOpen] = useState(false)
+  const [rateHourly, setRateHourly] = useState("")
+  const [rateFlat, setRateFlat] = useState("")
+  const [rateSaving, setRateSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +86,8 @@ export function ArchivedInvoiceView({ invoice }: { invoice: Invoice }) {
     )
   }
 
+  const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+
   const periodLabel = invoice.periodStart && invoice.periodEnd
     ? `${new Date(invoice.periodStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${new Date(invoice.periodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
     : "N/A"
@@ -88,7 +107,22 @@ export function ArchivedInvoiceView({ invoice }: { invoice: Invoice }) {
             </div>
             <div>
               <span className="text-muted-foreground">Time</span>
-              <p className="font-mono font-medium">{formatCurrency(invoice.totalTime)}</p>
+              <div className="flex items-center gap-1">
+                <p className="font-mono font-medium">{formatCurrency(invoice.totalTime)}</p>
+                {onInvoiceUpdate && (
+                  <button
+                    className="text-muted-foreground hover:text-primary"
+                    onClick={() => {
+                      setRateHourly("")
+                      setRateFlat("")
+                      setRateDialogOpen(true)
+                    }}
+                    aria-label="Edit rate"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <span className="text-muted-foreground">Subscriptions</span>
@@ -255,7 +289,7 @@ export function ArchivedInvoiceView({ invoice }: { invoice: Invoice }) {
           <div className="flex justify-end">
             <div className="flex flex-col items-end">
               <div className="flex flex-col gap-0.5 items-end text-muted-foreground">
-                {invoice.totalTime > 0 && (
+                {(invoice.totalTime > 0 || invoice.totalTime === 0) && entries.length > 0 && (
                   <div className="flex items-baseline gap-2">
                     <span>Time Tracking</span>
                     <span className="font-mono">{formatCurrency(invoice.totalTime)}</span>
@@ -281,6 +315,94 @@ export function ArchivedInvoiceView({ invoice }: { invoice: Invoice }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Rate Dialog */}
+      {onInvoiceUpdate && (
+        <Dialog open={rateDialogOpen} onOpenChange={setRateDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Update Rate</DialogTitle>
+              <DialogDescription>
+                Set an hourly rate or flat rate to recalculate the time cost for this invoice.
+                Total hours: {totalHours.toFixed(2)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="rate-hourly">Hourly Rate</Label>
+                  <Input
+                    id="rate-hourly"
+                    type="number"
+                    placeholder="e.g. 75"
+                    min="0"
+                    step="0.01"
+                    value={rateHourly}
+                    onChange={(e) => setRateHourly(e.target.value)}
+                    disabled={!!rateFlat.trim()}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="rate-flat">Flat Rate</Label>
+                  <Input
+                    id="rate-flat"
+                    type="number"
+                    placeholder="e.g. 5000"
+                    min="0"
+                    step="0.01"
+                    value={rateFlat}
+                    onChange={(e) => setRateFlat(e.target.value)}
+                    disabled={!!rateHourly.trim()}
+                  />
+                </div>
+              </div>
+              {(rateHourly.trim() || rateFlat.trim()) && (
+                <p className="text-sm text-muted-foreground">
+                  New time cost: {formatCurrency(
+                    rateFlat.trim()
+                      ? Number(rateFlat)
+                      : totalHours * Number(rateHourly)
+                  )}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={rateSaving || (!rateHourly.trim() && !rateFlat.trim())}
+                onClick={async () => {
+                  setRateSaving(true)
+                  try {
+                    const newTimeCost = rateFlat.trim()
+                      ? Math.round(Number(rateFlat) * 100) / 100
+                      : Math.round(totalHours * Number(rateHourly) * 100) / 100
+
+                    const isNextier = invoice.clientId === "nextier"
+                    const newGrandTotal = isNextier
+                      ? invoice.totalPayables
+                      : Math.round((newTimeCost + invoice.totalSubscriptions - invoice.totalPayables) * 100) / 100
+
+                    const updated = await updateInvoice(supabase, invoice.id, {
+                      total_time: newTimeCost,
+                      grand_total: newGrandTotal,
+                    })
+                    onInvoiceUpdate(updated)
+                    setRateDialogOpen(false)
+                  } catch {
+                    // silent
+                  } finally {
+                    setRateSaving(false)
+                  }
+                }}
+              >
+                {rateSaving ? "Saving..." : "Update Rate"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

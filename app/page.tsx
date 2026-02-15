@@ -296,7 +296,7 @@ export default function Page() {
           </div>
         )}
         {activeClient && selectedInvoice ? (
-          <ArchivedInvoiceView invoice={selectedInvoice} />
+          <ArchivedInvoiceView invoice={selectedInvoice} onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
         ) : activeClient?.billingPeriodStart ? (
           <>
             {activeClient.id !== "nextier" && (

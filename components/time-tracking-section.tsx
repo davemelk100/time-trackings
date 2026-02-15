@@ -48,12 +48,10 @@ import { useAuth } from "@/lib/auth-context";
 import { Plus, Pencil, Trash2, Paperclip, X, Download } from "lucide-react";
 
 
-function getReportingPeriod(): string {
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+function formatDateRange(startDate: string, endDate: string): string {
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(first)} - ${fmt(now)}`;
+  return `${fmt(new Date(startDate + "T00:00:00"))} - ${fmt(new Date(endDate + "T00:00:00"))}`;
 }
 
 function formatCurrency(n: number) {
@@ -124,12 +122,14 @@ export function TimeTrackingSection({
   hourlyRate = null,
   flatRate = null,
   refreshKey = 0,
+  billingPeriodEnd = null,
 }: {
   editMode?: boolean;
   clientId?: string;
   hourlyRate?: number | null;
   flatRate?: number | null;
   refreshKey?: number;
+  billingPeriodEnd?: string | null;
 }) {
   const { supabase } = useAuth();
   const HOURLY_RATE = hourlyRate;
@@ -153,6 +153,13 @@ export function TimeTrackingSection({
     useState<TimeEntry | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const reportingPeriod = useMemo(() => {
+    const dates = entries.map((e) => e.date).filter(Boolean).sort();
+    if (dates.length === 0) return null;
+    const endDate = billingPeriodEnd || new Date().toISOString().slice(0, 10);
+    return formatDateRange(dates[0], endDate);
+  }, [entries, billingPeriodEnd]);
 
   const timeOptions = useMemo(() => generateTimeOptions(), []);
 
@@ -341,14 +348,15 @@ export function TimeTrackingSection({
         </Card>
       )}
 
-      {/* Meta info */}
+      {/* Meta info – only shown when entries exist */}
+      {entries.length > 0 && (
       <Card>
         <CardHeader>
           {/* Print-only: two-column layout */}
           <div className="invoice-print hidden print:flex justify-between items-start">
             <div className="flex flex-col gap-0.5">
               <CardTitle>Invoice Details</CardTitle>
-              <span className="text-muted-foreground">{getReportingPeriod()}</span>
+              {reportingPeriod && <span className="text-muted-foreground">{reportingPeriod}</span>}
             </div>
             <div className="flex flex-col gap-1 items-end text-right">
               <div>
@@ -370,7 +378,7 @@ export function TimeTrackingSection({
           <div className="invoice-screen grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-0.5">
               <CardTitle>Invoice Details</CardTitle>
-              <span className="text-sm text-muted-foreground">{getReportingPeriod()}</span>
+              {reportingPeriod && <span className="text-sm text-muted-foreground">{reportingPeriod}</span>}
             </div>
             <div className="flex flex-col gap-0.5 items-start">
               <span className="text-muted-foreground">Payable To</span>
@@ -392,8 +400,10 @@ export function TimeTrackingSection({
           </div>
         </CardHeader>
       </Card>
+      )}
 
-      {/* Entries table */}
+      {/* Entries table – hidden entirely when empty and not in edit mode */}
+      {(entries.length > 0 || editMode) && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
@@ -406,6 +416,7 @@ export function TimeTrackingSection({
             </Button>
           )}
         </CardHeader>
+        {entries.length > 0 && (
         <CardContent className="p-0">
           <div className="overflow-x-auto">
           <Table>
@@ -425,19 +436,7 @@ export function TimeTrackingSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="py-8 text-center text-muted-foreground"
-                  >
-                    {editMode
-                      ? 'No time entries yet. Click "Add Entry" to start tracking.'
-                      : 'No time entries yet.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entries.map((entry) => (
+              {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="whitespace-nowrap font-medium">
                       {new Date(entry.date + "T00:00:00").toLocaleDateString(
@@ -501,10 +500,8 @@ export function TimeTrackingSection({
                       </TableCell>
                     )}
                   </TableRow>
-                ))
-              )}
+                ))}
             </TableBody>
-            {entries.length > 0 && (
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={4} className="font-semibold">
@@ -519,11 +516,12 @@ export function TimeTrackingSection({
                   {editMode && <TableCell />}
                 </TableRow>
               </TableFooter>
-            )}
           </Table>
           </div>
         </CardContent>
+        )}
       </Card>
+      )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

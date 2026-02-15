@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodEnd } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 import {
   Select,
@@ -142,6 +142,8 @@ export default function Page() {
       setArchiveHourlyRate("")
       setArchiveFlatRate("")
       setArchiveRateTbd(false)
+      const rows = await fetchClients(supabase)
+      setClients(rows)
       setRefreshKey((k) => k + 1)
       setPayablesKey((k) => k + 1)
       setSelectedPeriod("current")
@@ -216,44 +218,62 @@ export default function Page() {
           </div>
           <span className="hidden print:block text-lg font-semibold">{activeClient?.name}</span>
           <div className="flex items-center gap-2 print:hidden">
-            {selectedPeriod === "current" && activeClient && (
-              activeClient.billingPeriodEnd ? (
-                <div className="flex items-center gap-1.5 rounded-md border bg-muted px-3 py-1.5 text-sm">
-                  <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-                  <span>Period ends {new Date(activeClient.billingPeriodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                  <button
-                    className="ml-1 rounded-full p-0.5 hover:bg-background"
+            {selectedPeriod === "current" && activeClient && !activeClient.billingPeriodStart && (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={async () => {
+                  const today = new Date().toISOString().slice(0, 10)
+                  await updateClientBillingPeriodStart(supabase, activeClient.id, today)
+                  const rows = await fetchClients(supabase)
+                  setClients(rows)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                New Invoice
+              </Button>
+            )}
+            {selectedPeriod === "current" && activeClient?.billingPeriodStart && (
+              <>
+                {activeClient.billingPeriodEnd ? (
+                  <div className="flex items-center gap-1.5 rounded-md border bg-muted px-3 py-1.5 text-sm">
+                    <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                    <span>Period ends {new Date(activeClient.billingPeriodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                    <button
+                      className="ml-1 rounded-full p-0.5 hover:bg-background"
+                      onClick={async () => {
+                        await updateClientBillingPeriodEnd(supabase, activeClient.id, null)
+                        const rows = await fetchClients(supabase)
+                        setClients(rows)
+                      }}
+                      aria-label="Clear billing period end"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
                     onClick={async () => {
-                      await updateClientBillingPeriodEnd(supabase, activeClient.id, null)
+                      const today = new Date().toISOString().slice(0, 10)
+                      await updateClientBillingPeriodEnd(supabase, activeClient.id, today)
                       const rows = await fetchClients(supabase)
                       setClients(rows)
                     }}
-                    aria-label="Clear billing period end"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 shrink-0"
-                  onClick={async () => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    await updateClientBillingPeriodEnd(supabase, activeClient.id, today)
-                    const rows = await fetchClients(supabase)
-                    setClients(rows)
-                  }}
-                >
-                  <CalendarCheck className="h-4 w-4" />
-                  End Billing Period
+                    <CalendarCheck className="h-4 w-4" />
+                    End Billing Period
+                  </Button>
+                )}
+                <Button onClick={() => { setArchiveHourlyRate(activeClient?.hourlyRate != null ? String(activeClient.hourlyRate) : ""); setArchiveFlatRate(activeClient?.flatRate != null ? String(activeClient.flatRate) : ""); setArchiveDialogOpen(true); }} variant="default" size="sm" className="gap-1.5 shrink-0">
+                  <Archive className="h-4 w-4" />
+                  Create Invoice
                 </Button>
-              )
+              </>
             )}
-            <Button onClick={() => { setArchiveHourlyRate(activeClient?.hourlyRate != null ? String(activeClient.hourlyRate) : ""); setArchiveFlatRate(activeClient?.flatRate != null ? String(activeClient.flatRate) : ""); setArchiveDialogOpen(true); }} variant="default" size="sm" className="gap-1.5 shrink-0">
-              <Archive className="h-4 w-4" />
-              New Invoice
-            </Button>
           </div>
         </div>
         {activeClient && invoices.length > 0 && (
@@ -277,19 +297,18 @@ export default function Page() {
         )}
         {activeClient && selectedInvoice ? (
           <ArchivedInvoiceView invoice={selectedInvoice} />
-        ) : activeClient && (
+        ) : activeClient?.billingPeriodStart ? (
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} />
+                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} />
                 <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} />
               </>
             )}
             <PayablesSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
             <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} />
-            {/* New Invoice button moved to top bar */}
           </>
-        )}
+        ) : null}
       </main>
       <DashboardFooter />
 

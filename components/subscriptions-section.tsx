@@ -247,6 +247,8 @@ export function SubscriptionsSection({
 
   if (!loaded) return null;
 
+  if (subscriptions.length === 0 && !editMode) return null;
+
   return (
     <div className="flex flex-col gap-6">
       {error && (
@@ -277,6 +279,7 @@ export function SubscriptionsSection({
             </Button>
           )}
         </CardHeader>
+        {subscriptions.length > 0 && (
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -296,19 +299,7 @@ export function SubscriptionsSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subscriptions.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      className="py-8 text-center text-muted-foreground"
-                    >
-                      {editMode
-                        ? 'No subscriptions yet. Click "Add Subscription" to get started.'
-                        : 'No subscriptions yet.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  subscriptions.map((sub) => (
+                {subscriptions.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell className="font-medium">{sub.name}</TableCell>
                       <TableCell className="text-muted-foreground">
@@ -370,10 +361,8 @@ export function SubscriptionsSection({
                         </TableCell>
                       )}
                     </TableRow>
-                  ))
-                )}
+                  ))}
               </TableBody>
-              {subscriptions.length > 0 && (
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={5} className="font-semibold">
@@ -388,10 +377,10 @@ export function SubscriptionsSection({
                     {editMode && <TableCell />}
                   </TableRow>
                 </TableFooter>
-              )}
             </Table>
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* Add/Edit Dialog */}

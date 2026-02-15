@@ -61,6 +61,9 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
 
   if (!loaded) return null
 
+  const hasData = timeCost !== null || subscriptionMonthly > 0 || payablesPaid > 0
+  if (!hasData) return null
+
   const subscriptionAnnual = subscriptionMonthly * 12
   const isNextier = clientId === "nextier"
   const effectivePayables = hidePayables ? 0 : payablesPaid

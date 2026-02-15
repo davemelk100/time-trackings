@@ -288,6 +288,8 @@ export function PayablesSection({
 
   if (!loaded) return null;
 
+  if (payables.length === 0 && !editMode) return null;
+
   return (
     <div className="flex flex-col gap-6">
       {error && (
@@ -318,6 +320,7 @@ export function PayablesSection({
             </Button>
           )}
         </CardHeader>
+        {payables.length > 0 && (
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -335,19 +338,7 @@ export function PayablesSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payables.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={(editMode && clientId !== "nextier") ? 5 : 4}
-                      className="py-8 text-center text-muted-foreground"
-                    >
-                      {clientId === "nextier"
-                        ? "No proceeds yet."
-                        : "No payables yet. Click \"Add Payable\" to get started."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  payables.map((p) => (
+                {payables.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="text-muted-foreground">
                         {p.date
@@ -400,10 +391,8 @@ export function PayablesSection({
                         </TableCell>
                       )}
                     </TableRow>
-                  ))
-                )}
+                  ))}
               </TableBody>
-              {payables.length > 0 && (
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={3} className="font-semibold">
@@ -415,10 +404,10 @@ export function PayablesSection({
                     {editMode && clientId !== "nextier" && <TableCell />}
                   </TableRow>
                 </TableFooter>
-              )}
             </Table>
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* View Attachments Dialog */}

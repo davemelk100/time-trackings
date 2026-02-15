@@ -15,6 +15,7 @@ export interface ClientRow {
   name: string
   hourly_rate: number | null
   flat_rate: number | null
+  billing_period_start: string | null
   billing_period_end: string | null
   created_at: string
 }
@@ -25,6 +26,7 @@ export function rowToClient(row: ClientRow): Client {
     name: row.name,
     hourlyRate: row.hourly_rate != null ? Number(row.hourly_rate) : null,
     flatRate: row.flat_rate != null ? Number(row.flat_rate) : null,
+    billingPeriodStart: row.billing_period_start ?? null,
     billingPeriodEnd: row.billing_period_end ?? null,
   }
 }
@@ -54,6 +56,18 @@ export async function insertClient(
 
 export async function deleteClient(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from("clients").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function updateClientBillingPeriodStart(
+  supabase: SupabaseClient,
+  clientId: string,
+  date: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("clients")
+    .update({ billing_period_start: date })
+    .eq("id", clientId)
   if (error) throw error
 }
 
@@ -554,9 +568,9 @@ export async function createInvoice(
   const isNextier = clientId === "nextier"
   const grandTotal = isNextier ? payablesTotal : timeCost + subscriptionAnnual - payablesTotal
 
-  // 3. Derive period start from earliest entry date
+  // 3. Derive period dates from client billing fields, falling back to entry dates / today
   const dates = entries.map((e) => e.date).filter(Boolean).sort()
-  const periodStart = dates[0] || new Date().toISOString().slice(0, 10)
+  const periodStart = client?.billingPeriodStart || dates[0] || new Date().toISOString().slice(0, 10)
   const periodEnd = client?.billingPeriodEnd || new Date().toISOString().slice(0, 10)
 
   // 4. Generate invoice number
@@ -633,9 +647,13 @@ export async function createInvoice(
     if (error) throw error
   }
 
-  // 9. Clear billing_period_end on client after invoice creation
-  if (client?.billingPeriodEnd) {
-    await updateClientBillingPeriodEnd(supabase, clientId, null)
+  // 9. Clear billing period dates on client after invoice creation
+  if (client?.billingPeriodStart || client?.billingPeriodEnd) {
+    const { error: clearError } = await supabase
+      .from("clients")
+      .update({ billing_period_start: null, billing_period_end: null })
+      .eq("id", clientId)
+    if (clearError) throw clearError
   }
 
   return invoice

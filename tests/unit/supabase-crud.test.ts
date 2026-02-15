@@ -13,8 +13,8 @@ describe("fetchClients", () => {
   it("queries clients table, orders by name, and maps rows", async () => {
     const { client, chain } = createMockSupabase()
     chain._setResult([
-      { id: "c1", name: "Acme", hourly_rate: 50, flat_rate: null, created_at: "2025-01-01" },
-      { id: "c2", name: "Beta", hourly_rate: null, flat_rate: 200, created_at: "2025-01-01" },
+      { id: "c1", name: "Acme", hourly_rate: 50, flat_rate: null, billing_period_end: null, created_at: "2025-01-01" },
+      { id: "c2", name: "Beta", hourly_rate: null, flat_rate: 200, billing_period_end: null, created_at: "2025-01-01" },
     ])
 
     const result = await fetchClients(client)
@@ -22,8 +22,8 @@ describe("fetchClients", () => {
     expect(chain.select).toHaveBeenCalledWith("*")
     expect(chain.order).toHaveBeenCalledWith("name", { ascending: true })
     expect(result).toEqual([
-      { id: "c1", name: "Acme", hourlyRate: 50, flatRate: null },
-      { id: "c2", name: "Beta", hourlyRate: null, flatRate: 200 },
+      { id: "c1", name: "Acme", hourlyRate: 50, flatRate: null, billingPeriodEnd: null },
+      { id: "c2", name: "Beta", hourlyRate: null, flatRate: 200, billingPeriodEnd: null },
     ])
   })
 

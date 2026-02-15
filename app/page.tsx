@@ -18,13 +18,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Plus, Archive } from "lucide-react"
+import { Plus, Archive, CalendarCheck, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodEnd } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 import {
   Select,
@@ -58,6 +58,9 @@ export default function Page() {
   const [archiveCopySubs, setArchiveCopySubs] = useState(false)
   const [archiveNotes, setArchiveNotes] = useState("")
   const [archiving, setArchiving] = useState(false)
+  const [archiveHourlyRate, setArchiveHourlyRate] = useState("")
+  const [archiveFlatRate, setArchiveFlatRate] = useState("")
+  const [archiveRateTbd, setArchiveRateTbd] = useState(false)
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -124,13 +127,21 @@ export default function Page() {
     if (!activeClient) return
     setArchiving(true)
     try {
+      const hourlyOverride = archiveRateTbd ? undefined : (archiveHourlyRate.trim() ? Number(archiveHourlyRate) : undefined)
+      const flatOverride = archiveRateTbd ? undefined : (archiveFlatRate.trim() ? Number(archiveFlatRate) : undefined)
       await createInvoice(supabase, activeClient.id, {
         copySubscriptionsForward: archiveCopySubs,
         notes: archiveNotes,
+        hourlyRateOverride: hourlyOverride,
+        flatRateOverride: flatOverride,
+        rateTbd: archiveRateTbd,
       })
       setArchiveDialogOpen(false)
       setArchiveNotes("")
       setArchiveCopySubs(false)
+      setArchiveHourlyRate("")
+      setArchiveFlatRate("")
+      setArchiveRateTbd(false)
       setRefreshKey((k) => k + 1)
       setPayablesKey((k) => k + 1)
       setSelectedPeriod("current")
@@ -204,10 +215,46 @@ export default function Page() {
             </Button>
           </div>
           <span className="hidden print:block text-lg font-semibold">{activeClient?.name}</span>
-          <Button onClick={() => setArchiveDialogOpen(true)} variant="default" size="sm" className="gap-1.5 shrink-0 print:hidden">
-            <Archive className="h-4 w-4" />
-            New Invoice
-          </Button>
+          <div className="flex items-center gap-2 print:hidden">
+            {selectedPeriod === "current" && activeClient && (
+              activeClient.billingPeriodEnd ? (
+                <div className="flex items-center gap-1.5 rounded-md border bg-muted px-3 py-1.5 text-sm">
+                  <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                  <span>Period ends {new Date(activeClient.billingPeriodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <button
+                    className="ml-1 rounded-full p-0.5 hover:bg-background"
+                    onClick={async () => {
+                      await updateClientBillingPeriodEnd(supabase, activeClient.id, null)
+                      const rows = await fetchClients(supabase)
+                      setClients(rows)
+                    }}
+                    aria-label="Clear billing period end"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shrink-0"
+                  onClick={async () => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    await updateClientBillingPeriodEnd(supabase, activeClient.id, today)
+                    const rows = await fetchClients(supabase)
+                    setClients(rows)
+                  }}
+                >
+                  <CalendarCheck className="h-4 w-4" />
+                  End Billing Period
+                </Button>
+              )
+            )}
+            <Button onClick={() => { setArchiveHourlyRate(activeClient?.hourlyRate != null ? String(activeClient.hourlyRate) : ""); setArchiveFlatRate(activeClient?.flatRate != null ? String(activeClient.flatRate) : ""); setArchiveDialogOpen(true); }} variant="default" size="sm" className="gap-1.5 shrink-0">
+              <Archive className="h-4 w-4" />
+              New Invoice
+            </Button>
+          </div>
         </div>
         {activeClient && invoices.length > 0 && (
           <div className="flex items-center gap-3 print:hidden">
@@ -274,6 +321,50 @@ export default function Page() {
                 onChange={(e) => setArchiveNotes(e.target.value)}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="archive-hourly-rate">Hourly Rate</Label>
+                <Input
+                  id="archive-hourly-rate"
+                  type="number"
+                  placeholder="e.g. 75"
+                  min="0"
+                  step="0.01"
+                  value={archiveHourlyRate}
+                  onChange={(e) => setArchiveHourlyRate(e.target.value)}
+                  disabled={archiveRateTbd || !!archiveFlatRate.trim()}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="archive-flat-rate">Flat Rate</Label>
+                <Input
+                  id="archive-flat-rate"
+                  type="number"
+                  placeholder="e.g. 5000"
+                  min="0"
+                  step="0.01"
+                  value={archiveFlatRate}
+                  onChange={(e) => setArchiveFlatRate(e.target.value)}
+                  disabled={archiveRateTbd || !!archiveHourlyRate.trim()}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="rate-tbd"
+                checked={archiveRateTbd}
+                onCheckedChange={(checked) => {
+                  const tbd = checked === true
+                  setArchiveRateTbd(tbd)
+                  if (tbd) {
+                    setArchiveHourlyRate("")
+                    setArchiveFlatRate("")
+                  }
+                }}
+              />
+              <Label htmlFor="rate-tbd">Rate TBD</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">Set either an hourly rate or a flat rate, not both. Check &quot;Rate TBD&quot; to skip rate for now.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>

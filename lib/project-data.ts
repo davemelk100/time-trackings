@@ -396,11 +396,12 @@ export interface Client {
   name: string
   hourlyRate: number | null
   flatRate: number | null
+  billingPeriodEnd: string | null
 }
 
 export const defaultClients: Client[] = [
-  { id: "cygnet", name: "Cygnet Institute", hourlyRate: 62, flatRate: null },
-  { id: "mindflip", name: "Mind Flip", hourlyRate: 50, flatRate: null },
+  { id: "cygnet", name: "Cygnet Institute", hourlyRate: 62, flatRate: null, billingPeriodEnd: null },
+  { id: "mindflip", name: "Mind Flip", hourlyRate: 50, flatRate: null, billingPeriodEnd: null },
 ]
 
 // ===== Payables =====

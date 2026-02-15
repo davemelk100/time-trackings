@@ -15,6 +15,7 @@ export interface ClientRow {
   name: string
   hourly_rate: number | null
   flat_rate: number | null
+  billing_period_end: string | null
   created_at: string
 }
 
@@ -24,6 +25,7 @@ export function rowToClient(row: ClientRow): Client {
     name: row.name,
     hourlyRate: row.hourly_rate != null ? Number(row.hourly_rate) : null,
     flatRate: row.flat_rate != null ? Number(row.flat_rate) : null,
+    billingPeriodEnd: row.billing_period_end ?? null,
   }
 }
 
@@ -52,6 +54,18 @@ export async function insertClient(
 
 export async function deleteClient(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from("clients").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function updateClientBillingPeriodEnd(
+  supabase: SupabaseClient,
+  clientId: string,
+  date: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("clients")
+    .update({ billing_period_end: date })
+    .eq("id", clientId)
   if (error) throw error
 }
 
@@ -509,9 +523,9 @@ export async function fetchPayablesByInvoice(supabase: SupabaseClient, invoiceId
 export async function createInvoice(
   supabase: SupabaseClient,
   clientId: string,
-  options: { copySubscriptionsForward?: boolean; notes?: string } = {},
+  options: { copySubscriptionsForward?: boolean; notes?: string; hourlyRateOverride?: number; flatRateOverride?: number; rateTbd?: boolean } = {},
 ): Promise<Invoice> {
-  const { copySubscriptionsForward = false, notes = "" } = options
+  const { copySubscriptionsForward = false, notes = "", hourlyRateOverride, flatRateOverride, rateTbd = false } = options
 
   // 1. Fetch current-period data + client info
   const [entries, subs, payables, clients] = await Promise.all([
@@ -522,12 +536,12 @@ export async function createInvoice(
   ])
 
   const client = clients.find((c) => c.id === clientId)
-  const hourlyRate = client?.hourlyRate ?? null
-  const flatRate = client?.flatRate ?? null
+  const hourlyRate = hourlyRateOverride !== undefined ? hourlyRateOverride : (client?.hourlyRate ?? null)
+  const flatRate = flatRateOverride !== undefined ? flatRateOverride : (client?.flatRate ?? null)
 
   // 2. Compute snapshot totals
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
-  const timeCost = flatRate != null ? flatRate : hourlyRate != null ? totalHours * hourlyRate : 0
+  const timeCost = rateTbd ? 0 : (flatRate != null ? flatRate : hourlyRate != null ? totalHours * hourlyRate : 0)
 
   const monthlySubTotal = subs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount
@@ -543,7 +557,7 @@ export async function createInvoice(
   // 3. Derive period start from earliest entry date
   const dates = entries.map((e) => e.date).filter(Boolean).sort()
   const periodStart = dates[0] || new Date().toISOString().slice(0, 10)
-  const periodEnd = new Date().toISOString().slice(0, 10)
+  const periodEnd = client?.billingPeriodEnd || new Date().toISOString().slice(0, 10)
 
   // 4. Generate invoice number
   const { count } = await supabase
@@ -617,6 +631,11 @@ export async function createInvoice(
     }))
     const { error } = await supabase.from("subscriptions").insert(newSubRows)
     if (error) throw error
+  }
+
+  // 9. Clear billing_period_end on client after invoice creation
+  if (client?.billingPeriodEnd) {
+    await updateClientBillingPeriodEnd(supabase, clientId, null)
   }
 
   return invoice

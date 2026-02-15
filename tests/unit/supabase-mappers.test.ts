@@ -15,20 +15,20 @@ import {
 
 describe("rowToClient", () => {
   it("maps snake_case to camelCase", () => {
-    const row: ClientRow = { id: "c1", name: "Acme", hourly_rate: 50, flat_rate: null, created_at: "2025-01-01" }
+    const row: ClientRow = { id: "c1", name: "Acme", hourly_rate: 50, flat_rate: null, billing_period_end: null, created_at: "2025-01-01" }
     const result = rowToClient(row)
-    expect(result).toEqual({ id: "c1", name: "Acme", hourlyRate: 50, flatRate: null })
+    expect(result).toEqual({ id: "c1", name: "Acme", hourlyRate: 50, flatRate: null, billingPeriodEnd: null })
   })
 
   it("coerces numeric string rates to numbers", () => {
-    const row = { id: "c2", name: "Beta", hourly_rate: "75" as any, flat_rate: "100" as any, created_at: "2025-01-01" }
+    const row = { id: "c2", name: "Beta", hourly_rate: "75" as any, flat_rate: "100" as any, billing_period_end: null, created_at: "2025-01-01" }
     const result = rowToClient(row)
     expect(result.hourlyRate).toBe(75)
     expect(result.flatRate).toBe(100)
   })
 
   it("keeps null rates as null", () => {
-    const row: ClientRow = { id: "c3", name: "Gamma", hourly_rate: null, flat_rate: null, created_at: "2025-01-01" }
+    const row: ClientRow = { id: "c3", name: "Gamma", hourly_rate: null, flat_rate: null, billing_period_end: null, created_at: "2025-01-01" }
     const result = rowToClient(row)
     expect(result.hourlyRate).toBeNull()
     expect(result.flatRate).toBeNull()

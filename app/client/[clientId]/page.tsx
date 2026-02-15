@@ -17,8 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { CalendarCheck, X } from "lucide-react"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, fetchInvoices } from "@/lib/supabase"
+import { fetchClients, fetchInvoices, updateClientBillingPeriodEnd } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
 export default function ClientPage() {
@@ -86,8 +88,8 @@ export default function ClientPage() {
     <div className="flex min-h-screen flex-col">
       <DashboardHeader clientName={client.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
-        {invoices.length > 0 && (
-          <div className="flex items-center gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-3 print:hidden">
+          {invoices.length > 0 && (
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="w-[280px]">
                 <SelectValue placeholder="Select period" />
@@ -103,8 +105,42 @@ export default function ClientPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
+          )}
+          {selectedPeriod === "current" && client && (
+            client.billingPeriodEnd ? (
+              <div className="flex items-center gap-1.5 rounded-md border bg-muted px-3 py-1.5 text-sm">
+                <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                <span>Period ends {new Date(client.billingPeriodEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                <button
+                  className="ml-1 rounded-full p-0.5 hover:bg-background"
+                  onClick={async () => {
+                    await updateClientBillingPeriodEnd(supabase, client.id, null)
+                    const rows = await fetchClients(supabase)
+                    setClient(rows.find((c) => c.id === clientId) ?? null)
+                  }}
+                  aria-label="Clear billing period end"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={async () => {
+                  const today = new Date().toISOString().slice(0, 10)
+                  await updateClientBillingPeriodEnd(supabase, client.id, today)
+                  const rows = await fetchClients(supabase)
+                  setClient(rows.find((c) => c.id === clientId) ?? null)
+                }}
+              >
+                <CalendarCheck className="h-4 w-4" />
+                End Billing Period
+              </Button>
+            )
+          )}
+        </div>
         {selectedInvoice ? (
           <ArchivedInvoiceView invoice={selectedInvoice} />
         ) : (

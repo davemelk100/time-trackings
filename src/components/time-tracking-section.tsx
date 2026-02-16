@@ -206,11 +206,9 @@ export function TimeTrackingSection({
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
   const totalCost = entries.length === 0
     ? null
-    : FLAT_RATE != null
-      ? FLAT_RATE
-      : HOURLY_RATE != null
-        ? totalHours * HOURLY_RATE
-        : null;
+    : HOURLY_RATE != null
+      ? totalHours * HOURLY_RATE
+      : null;
 
   const calculatedHours = calcHours(form.startTime, form.endTime);
 
@@ -475,7 +473,7 @@ export function TimeTrackingSection({
                     </TableCell>
                     <TableCell className="text-right font-monotext-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        {FLAT_RATE != null ? "\u2014" : HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
+                        {HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
                         {entry.attachments?.length > 0 && (
                           <button
                             type="button"

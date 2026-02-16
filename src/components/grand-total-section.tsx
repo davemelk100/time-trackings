@@ -37,7 +37,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
         const noData = entries.length === 0 && subs.length === 0 && payables.length === 0
 
         const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
-        setTimeCost(noData ? null : FLAT_RATE != null ? FLAT_RATE : HOURLY_RATE != null ? totalHours * HOURLY_RATE : null)
+        setTimeCost(noData ? null : HOURLY_RATE != null ? totalHours * HOURLY_RATE : null)
 
         const monthly = subs.reduce((sum, s) => {
           if (s.billingCycle === "monthly") return sum + s.amount

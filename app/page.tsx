@@ -196,7 +196,9 @@ export default function Page() {
       <DashboardHeader clientName="Admin" />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 print:hidden overflow-x-auto">
+          <div className="flex flex-col gap-1.5 print:hidden overflow-x-auto">
+            <Label className="text-xs text-muted-foreground">Clients</Label>
+            <div className="flex items-center gap-2">
             <Tabs value={activeClientId} onValueChange={setActiveClientId}>
               <TabsList className="flex-wrap h-auto">
                 {clients.map((client) => (
@@ -215,9 +217,12 @@ export default function Page() {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            </div>
           </div>
           <span className="hidden print:block text-lg font-semibold">{activeClient?.name}</span>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex flex-col gap-1.5 print:hidden">
+            <Label className="text-xs text-muted-foreground">Actions</Label>
+            <div className="flex items-center gap-2">
             {selectedPeriod === "current" && activeClient && !activeClient.billingPeriodStart && (
               <Button
                 variant="default"
@@ -274,6 +279,7 @@ export default function Page() {
                 </Button>
               </>
             )}
+            </div>
           </div>
         </div>
         {activeClient && invoices.length > 0 && (

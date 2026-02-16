@@ -258,19 +258,10 @@ export function ReportsSection() {
   // Summary stats
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
 
-  // For hourly clients: sum hours * rate. For flat-rate clients: sum flat rate once per client.
-  const hourlyCost = filteredEntries.reduce((sum, e) => {
-    if (getFlatRate(e.clientId) != null) return sum;
+  // Only include hourly costs; flat rate excluded until project is complete.
+  const totalTimeCost = filteredEntries.reduce((sum, e) => {
     return sum + e.totalHours * (getRate(e.clientId) ?? 0);
   }, 0);
-  const flatRateClientsInFilter = new Set(
-    filteredEntries.map((e) => e.clientId).filter((id) => getFlatRate(id) != null),
-  );
-  const flatCost = Array.from(flatRateClientsInFilter).reduce(
-    (sum, id) => sum + (getFlatRate(id) ?? 0),
-    0,
-  );
-  const totalTimeCost = hourlyCost + flatCost;
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -280,19 +271,14 @@ export function ReportsSection() {
 
   const totalPayables = filteredPayables.reduce((sum, p) => sum + p.amount, 0);
 
-  // Per-client time cost breakdown
+  // Per-client time cost breakdown (hourly only; flat rate excluded until project complete)
   const perClientTimeCost = useMemo(() => {
     const map: Record<string, number> = {};
     for (const e of filteredEntries) {
-      const flat = getFlatRate(e.clientId);
-      if (flat != null) {
-        map[e.clientId] = flat;
-      } else {
-        map[e.clientId] = (map[e.clientId] ?? 0) + e.totalHours * (getRate(e.clientId) ?? 0);
-      }
+      map[e.clientId] = (map[e.clientId] ?? 0) + e.totalHours * (getRate(e.clientId) ?? 0);
     }
     return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
-  }, [filteredEntries, clientRateMap, clientFlatRateMap, clientNameMap]);
+  }, [filteredEntries, clientRateMap, clientNameMap]);
 
   // Per-client subscription cost breakdown (annualized)
   const perClientSubsCost = useMemo(() => {
@@ -599,11 +585,9 @@ export function ReportsSection() {
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
-                      {getFlatRate(entry.clientId) != null
-                        ? "\u2014"
-                        : getRate(entry.clientId) != null
-                          ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
-                          : "TBD"}
+                      {getRate(entry.clientId) != null
+                        ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
+                        : "TBD"}
                     </TableCell>
                   </TableRow>
                 ))

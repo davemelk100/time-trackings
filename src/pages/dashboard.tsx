@@ -17,13 +17,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Plus, Archive, CalendarCheck, X, Pencil } from "lucide-react"
+import { Plus, Archive, CalendarCheck, X, Pencil, Trash2, Copy, KeyRound } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, updateClientName, upsertPayable } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, updateClientName, upsertPayable, fetchPasscodes, insertPasscode, updatePasscode, deletePasscode, type PasscodeRow } from "@/lib/supabase"
 import type { TimeEntry, Payable } from "@/lib/project-data"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -33,10 +33,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 
 export default function Page() {
-  const { supabase } = useAuth()
+  const { supabase, reloadPasscodes } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [activeClientId, setActiveClientId] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -66,6 +84,18 @@ export default function Page() {
   const [archiveHourlyRate, setArchiveHourlyRate] = useState("")
   const [archiveFlatRate, setArchiveFlatRate] = useState("")
   const [archiveRateTbd, setArchiveRateTbd] = useState(false)
+
+  // Passcode management state
+  const [passcodes, setPasscodes] = useState<PasscodeRow[]>([])
+  const [passcodeDialogOpen, setPasscodeDialogOpen] = useState(false)
+  const [passcodeEditing, setPasscodeEditing] = useState<PasscodeRow | null>(null)
+  const [passcodeCode, setPasscodeCode] = useState("")
+  const [passcodeRole, setPasscodeRole] = useState<"admin" | "client">("client")
+  const [passcodeClientId, setPasscodeClientId] = useState<string>("")
+  const [passcodeLabel, setPasscodeLabel] = useState("")
+  const [passcodeSaving, setPasscodeSaving] = useState(false)
+  const [passcodeError, setPasscodeError] = useState<string | null>(null)
+  const [passcodeDeleteId, setPasscodeDeleteId] = useState<string | null>(null)
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -122,6 +152,21 @@ export default function Page() {
     loadInvoices()
     return () => { cancelled = true }
   }, [activeClientId, supabase, refreshKey])
+
+  // Fetch passcodes on mount
+  useEffect(() => {
+    let cancelled = false
+    async function loadPasscodes() {
+      try {
+        const rows = await fetchPasscodes(supabase)
+        if (!cancelled) setPasscodes(rows)
+      } catch {
+        // ignore
+      }
+    }
+    loadPasscodes()
+    return () => { cancelled = true }
+  }, [supabase])
 
   const activeClient = clients.find((c) => c.id === activeClientId) ?? clients[0]
   const selectedInvoice = selectedPeriod !== "current"
@@ -197,6 +242,71 @@ export default function Page() {
       setAddError(err instanceof Error ? err.message : "Failed to rename client")
     } finally {
       setRenaming(false)
+    }
+  }
+
+  function generatePasscode() {
+    return String(Math.floor(10000 + Math.random() * 90000))
+  }
+
+  function openAddPasscodeDialog() {
+    setPasscodeEditing(null)
+    setPasscodeCode(generatePasscode())
+    setPasscodeRole("client")
+    setPasscodeClientId(clients[0]?.id ?? "")
+    setPasscodeLabel("")
+    setPasscodeError(null)
+    setPasscodeDialogOpen(true)
+  }
+
+  function openEditPasscodeDialog(p: PasscodeRow) {
+    setPasscodeEditing(p)
+    setPasscodeCode(p.code)
+    setPasscodeRole(p.role)
+    setPasscodeClientId(p.client_id ?? clients[0]?.id ?? "")
+    setPasscodeLabel(p.label)
+    setPasscodeError(null)
+    setPasscodeDialogOpen(true)
+  }
+
+  async function handleSavePasscode() {
+    if (!passcodeCode.trim() || !passcodeLabel.trim()) return
+    setPasscodeSaving(true)
+    setPasscodeError(null)
+    try {
+      const payload = {
+        code: passcodeCode.trim(),
+        role: passcodeRole,
+        client_id: passcodeRole === "client" ? passcodeClientId : null,
+        label: passcodeLabel.trim(),
+      }
+      if (passcodeEditing) {
+        await updatePasscode(supabase, passcodeEditing.id, payload)
+      } else {
+        await insertPasscode(supabase, payload)
+      }
+      const rows = await fetchPasscodes(supabase)
+      setPasscodes(rows)
+      await reloadPasscodes()
+      setPasscodeDialogOpen(false)
+    } catch (err) {
+      setPasscodeError(err instanceof Error ? err.message : "Failed to save passcode")
+    } finally {
+      setPasscodeSaving(false)
+    }
+  }
+
+  async function handleDeletePasscode() {
+    if (!passcodeDeleteId) return
+    try {
+      await deletePasscode(supabase, passcodeDeleteId)
+      const rows = await fetchPasscodes(supabase)
+      setPasscodes(rows)
+      await reloadPasscodes()
+    } catch {
+      // ignore
+    } finally {
+      setPasscodeDeleteId(null)
     }
   }
 
@@ -377,6 +487,69 @@ export default function Page() {
             <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} />
           </>
         ) : null}
+
+        {/* Passcode Management Section */}
+        <div className="flex flex-col gap-4 print:hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Passcodes</h2>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={openAddPasscodeDialog}>
+              <Plus className="h-4 w-4" />
+              Add Passcode
+            </Button>
+          </div>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {passcodes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No passcodes configured
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  passcodes.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.label}</TableCell>
+                      <TableCell>
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-sm">{p.code}</code>
+                      </TableCell>
+                      <TableCell>
+                        <span className={p.role === "admin" ? "text-orange-600 dark:text-orange-400 font-medium" : ""}>
+                          {p.role}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {p.client_id ? clients.find((c) => c.id === p.client_id)?.name ?? p.client_id : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPasscodeDialog(p)} aria-label="Edit passcode">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setPasscodeDeleteId(p.id)} aria-label="Delete passcode">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </main>
       <DashboardFooter />
 
@@ -557,6 +730,107 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add/Edit Passcode Dialog */}
+      <Dialog open={passcodeDialogOpen} onOpenChange={setPasscodeDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{passcodeEditing ? "Edit Passcode" : "Add Passcode"}</DialogTitle>
+            <DialogDescription>
+              {passcodeEditing ? "Update this passcode." : "Create a new passcode for login access."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            {passcodeError && (
+              <p className="text-sm text-destructive">{passcodeError}</p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="passcode-label">Label</Label>
+              <Input
+                id="passcode-label"
+                placeholder="e.g. Client Name"
+                value={passcodeLabel}
+                onChange={(e) => setPasscodeLabel(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="passcode-code">Code</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="passcode-code"
+                  placeholder="5-digit code"
+                  maxLength={5}
+                  value={passcodeCode}
+                  onChange={(e) => setPasscodeCode(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setPasscodeCode(generatePasscode())}
+                  aria-label="Generate random code"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="passcode-role">Role</Label>
+              <Select value={passcodeRole} onValueChange={(v) => setPasscodeRole(v as "admin" | "client")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="client">Client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {passcodeRole === "client" && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="passcode-client">Client</Label>
+                <Select value={passcodeClientId} onValueChange={setPasscodeClientId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasscodeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePasscode} disabled={passcodeSaving || !passcodeCode.trim() || !passcodeLabel.trim()}>
+              {passcodeSaving ? "Saving..." : passcodeEditing ? "Update" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Passcode Confirmation */}
+      <AlertDialog open={!!passcodeDeleteId} onOpenChange={(open) => { if (!open) setPasscodeDeleteId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Passcode</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this passcode. Anyone using it will no longer be able to sign in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePasscode}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

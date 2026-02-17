@@ -472,6 +472,49 @@ export async function deleteAllAttachments(supabase: SupabaseClient, attachments
   if (error) throw error
 }
 
+// ── Passcodes CRUD ──────────────────────────────────────────────────
+
+export interface PasscodeRow {
+  id: string
+  code: string
+  role: "admin" | "client"
+  client_id: string | null
+  label: string
+  created_at: string
+}
+
+export async function fetchPasscodes(supabase: SupabaseClient): Promise<PasscodeRow[]> {
+  const { data, error } = await supabase
+    .from("passcodes")
+    .select("*")
+    .order("created_at", { ascending: true })
+
+  if (error) throw error
+  return data as PasscodeRow[]
+}
+
+export async function insertPasscode(
+  supabase: SupabaseClient,
+  passcode: { code: string; role: "admin" | "client"; client_id: string | null; label: string },
+): Promise<void> {
+  const { error } = await supabase.from("passcodes").insert(passcode)
+  if (error) throw error
+}
+
+export async function updatePasscode(
+  supabase: SupabaseClient,
+  id: string,
+  updates: { code?: string; role?: "admin" | "client"; client_id?: string | null; label?: string },
+): Promise<void> {
+  const { error } = await supabase.from("passcodes").update(updates).eq("id", id)
+  if (error) throw error
+}
+
+export async function deletePasscode(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("passcodes").delete().eq("id", id)
+  if (error) throw error
+}
+
 // ── Invoices CRUD ───────────────────────────────────────────────────
 
 export interface InvoiceRow {

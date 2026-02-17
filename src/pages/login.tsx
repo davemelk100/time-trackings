@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth-context"
 
 export default function LoginPage() {
-  const { signIn, signOut } = useAuth()
+  const { signIn, signOut, passcodesReady } = useAuth()
   const navigate = useNavigate()
   const [passcode, setPasscode] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +66,7 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || !passcodesReady} className="w-full">
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>

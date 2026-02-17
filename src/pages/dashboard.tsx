@@ -17,13 +17,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Plus, Archive, CalendarCheck, X } from "lucide-react"
+import { Plus, Archive, CalendarCheck, X, Pencil } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, upsertPayable } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, updateClientName, upsertPayable } from "@/lib/supabase"
 import type { TimeEntry, Payable } from "@/lib/project-data"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -50,6 +50,11 @@ export default function Page() {
   const [addError, setAddError] = useState<string | null>(null)
   const [payablesKey, setPayablesKey] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // Rename client dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renameName, setRenameName] = useState("")
+  const [renaming, setRenaming] = useState(false)
 
   // Invoice / archive state
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -180,6 +185,21 @@ export default function Page() {
     }
   }
 
+  async function handleRenameClient() {
+    if (!renameName.trim() || !activeClient) return
+    setRenaming(true)
+    try {
+      await updateClientName(supabase, activeClient.id, renameName.trim())
+      const rows = await fetchClients(supabase)
+      setClients(rows)
+      setRenameDialogOpen(false)
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Failed to rename client")
+    } finally {
+      setRenaming(false)
+    }
+  }
+
   if (!mounted) {
     return (
       <div className="flex min-h-screen flex-col">
@@ -208,6 +228,18 @@ export default function Page() {
                 ))}
               </TabsList>
             </Tabs>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => {
+                setRenameName(activeClient?.name ?? "")
+                setRenameDialogOpen(true)
+              }}
+              aria-label="Rename client"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -307,7 +339,7 @@ export default function Page() {
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} onRateChange={async (newHourly, newFlat) => {
+                <TimeTrackingSection editMode clientId={activeClient.id} clientName={activeClient.name} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} onRateChange={async (newHourly, newFlat) => {
                   await updateClientRate(supabase, activeClient.id, newHourly, newFlat)
                   const rows = await fetchClients(supabase)
                   setClients(rows)
@@ -489,6 +521,37 @@ export default function Page() {
             </Button>
             <Button onClick={handleAddClient} disabled={saving || !newName.trim()}>
               {saving ? "Saving..." : "Add Client"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Client Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename Client</DialogTitle>
+            <DialogDescription>
+              Update the display name for this client.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rename-client">Name</Label>
+              <Input
+                id="rename-client"
+                placeholder="Client name"
+                value={renameName}
+                onChange={(e) => setRenameName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRenameClient} disabled={renaming || !renameName.trim()}>
+              {renaming ? "Saving..." : "Rename"}
             </Button>
           </DialogFooter>
         </DialogContent>

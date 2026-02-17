@@ -117,6 +117,7 @@ const emptyForm: EntryForm = {
 export function TimeTrackingSection({
   editMode = false,
   clientId = "cygnet",
+  clientName,
   hourlyRate = null,
   flatRate = null,
   refreshKey = 0,
@@ -126,6 +127,7 @@ export function TimeTrackingSection({
 }: {
   editMode?: boolean;
   clientId?: string;
+  clientName?: string;
   hourlyRate?: number | null;
   flatRate?: number | null;
   refreshKey?: number;
@@ -240,12 +242,15 @@ export function TimeTrackingSection({
   }
 
   async function handleSave() {
-    if (!form.date || !form.startTime) return;
+    if (!form.date) return;
+    if (FLAT_RATE == null && !form.startTime) return;
     if (form.endTime && calculatedHours <= 0) return;
 
-    const timeRange = form.endTime
-      ? `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
-      : `${formatTime12(form.startTime)} - In Progress`;
+    const timeRange = FLAT_RATE != null
+      ? ""
+      : form.endTime
+        ? `${formatTime12(form.startTime)} - ${formatTime12(form.endTime)}`
+        : `${formatTime12(form.startTime)} - In Progress`;
 
     const entryId = editingEntry?.id ?? crypto.randomUUID();
 
@@ -275,7 +280,7 @@ export function TimeTrackingSection({
         startTime: form.startTime,
         endTime: form.endTime,
         timeRange,
-        totalHours: form.endTime ? calculatedHours : 0,
+        totalHours: FLAT_RATE != null ? 0 : form.endTime ? calculatedHours : 0,
         tasks: form.tasks,
         notes: form.notes,
         attachments: finalAttachments,
@@ -366,6 +371,7 @@ export function TimeTrackingSection({
           {/* Print-only: two-column layout */}
           <div className="invoice-print hidden print:flex justify-between items-start">
             <div className="flex flex-col gap-0.5">
+              {clientName && <span className="text-lg font-semibold">{clientName}</span>}
               <CardTitle>Invoice Details</CardTitle>
               {reportingPeriod && <span className="text-muted-foreground">{reportingPeriod}</span>}
             </div>
@@ -450,9 +456,9 @@ export function TimeTrackingSection({
               <TableRow>
                 <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead>Tasks</TableHead>
-                <TableHead className="w-[110px]">Time Range</TableHead>
-                <TableHead className="w-[80px] text-right">Hours</TableHead>
-                <TableHead className="w-[100px] text-right">Cost</TableHead>
+                {FLAT_RATE == null && <TableHead className="w-[110px]">Time Range</TableHead>}
+                {FLAT_RATE == null && <TableHead className="w-[80px] text-right">Hours</TableHead>}
+                {FLAT_RATE == null && <TableHead className="w-[100px] text-right">Cost</TableHead>}
                 {editMode && (
                   <TableHead className="w-[100px] text-right">
                     Actions
@@ -467,14 +473,43 @@ export function TimeTrackingSection({
                       {(() => { const d = new Date(entry.date + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()}
                     </TableCell>
                     <TableCell className="max-w-[220px] text-muted-foreground">
-                      {entry.tasks}
+                      <span className="inline-flex items-center gap-1.5">
+                        {entry.tasks}
+                        {FLAT_RATE != null && entry.attachments?.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex text-muted-foreground hover:text-primary"
+                            title={`${entry.attachments.length} receipt(s)`}
+                            onClick={() => setViewAttachmentsEntry(entry)}
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {FLAT_RATE != null && entry.links?.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex text-muted-foreground hover:text-primary"
+                            title={`${entry.links.length} link(s)`}
+                            onClick={() => setViewLinksEntry(entry)}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
                     </TableCell>
+                    {FLAT_RATE == null && (
                     <TableCell className="whitespace-nowrap">
-                      {entry.timeRange}
+                      <span className="inline-flex items-center gap-1.5">
+                        {entry.timeRange}
+                      </span>
                     </TableCell>
+                    )}
+                    {FLAT_RATE == null && (
                     <TableCell className="text-right font-mono">
                       {entry.totalHours.toFixed(2)}
                     </TableCell>
+                    )}
+                    {FLAT_RATE == null && (
                     <TableCell className="text-right font-monotext-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
                         {HOURLY_RATE != null ? formatCurrency(entry.totalHours * HOURLY_RATE) : "TBD"}
@@ -500,6 +535,7 @@ export function TimeTrackingSection({
                         )}
                       </span>
                     </TableCell>
+                    )}
                     {editMode && (
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -529,15 +565,23 @@ export function TimeTrackingSection({
             </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={3} className="font-semibold">
+                  <TableCell colSpan={FLAT_RATE != null ? 2 : 3} className="font-semibold">
                     Total
                   </TableCell>
+                  {FLAT_RATE == null ? (
+                  <>
                   <TableCell className="text-right font-mono font-semibold">
                     {totalHours.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold text-primary">
                     {totalCost != null ? formatCurrency(totalCost) : "TBD"}
                   </TableCell>
+                  </>
+                  ) : (
+                  <TableCell className="text-right font-mono font-semibold text-primary">
+                    {formatCurrency(FLAT_RATE)}
+                  </TableCell>
+                  )}
                   {editMode && <TableCell />}
                 </TableRow>
               </TableFooter>
@@ -558,7 +602,9 @@ export function TimeTrackingSection({
             <DialogDescription>
               {editingEntry
                 ? "Update the details of this time entry."
-                : "Select start and end times to automatically calculate hours."}
+                : FLAT_RATE != null
+                  ? "Enter the details for this entry."
+                  : "Select start and end times to automatically calculate hours."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -572,6 +618,7 @@ export function TimeTrackingSection({
               />
             </div>
 
+            {FLAT_RATE == null && (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>Start Time</Label>
@@ -610,9 +657,10 @@ export function TimeTrackingSection({
                 </Select>
               </div>
             </div>
+            )}
 
             {/* Auto-calculated hours preview */}
-            {form.startTime && form.endTime && (
+            {FLAT_RATE == null && form.startTime && form.endTime && (
               <div className="flex items-center gap-3 rounded-md border border-border bg-muted/50 px-4 py-3">
                 <div className="flex flex-col">
                   <span className="text-muted-foreground">
@@ -785,8 +833,8 @@ export function TimeTrackingSection({
               disabled={
                 uploading ||
                 !form.date ||
-                !form.startTime ||
-                (!!form.endTime && calculatedHours <= 0)
+                (FLAT_RATE == null && !form.startTime) ||
+                (FLAT_RATE == null && !!form.endTime && calculatedHours <= 0)
               }
             >
               {uploading

@@ -59,6 +59,18 @@ export async function deleteClient(supabase: SupabaseClient, id: string): Promis
   if (error) throw error
 }
 
+export async function updateClientName(
+  supabase: SupabaseClient,
+  clientId: string,
+  name: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("clients")
+    .update({ name })
+    .eq("id", clientId)
+  if (error) throw error
+}
+
 export async function updateClientRate(
   supabase: SupabaseClient,
   clientId: string,

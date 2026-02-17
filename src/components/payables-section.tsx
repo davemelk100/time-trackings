@@ -109,11 +109,36 @@ export function PayablesSection({
           isNextier ? Promise.resolve([]) : fetchTimeEntries(supabase, clientId),
         ]);
         if (cancelled) return;
-        setPayables(rows);
 
         const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
         const timeCost = hourlyRate != null ? totalHours * hourlyRate : 0;
-        setTenPercent(Math.round(timeCost * 0.1 * 100) / 100);
+        const newTenPercent = Math.round(timeCost * 0.1 * 100) / 100;
+        setTenPercent(newTenPercent);
+
+        // Auto-update percentage-based payables (payee=nextier) when rate changes
+        const updated = await Promise.all(
+          rows.map(async (p) => {
+            if (p.payee === "nextier" && p.description === "10% of time entries" && p.amount !== newTenPercent) {
+              const updatedPayable = { ...p, amount: newTenPercent };
+              await upsertPayable(supabase, updatedPayable, clientId);
+              // Update the Nextier mirror
+              if (clientId !== "nextier") {
+                await updateNextierMirror(supabase, p.description, p.amount, p.date, {
+                  description: updatedPayable.description,
+                  amount: updatedPayable.amount,
+                  date: updatedPayable.date,
+                  notes: updatedPayable.notes,
+                  attachments: updatedPayable.attachments,
+                  links: updatedPayable.links,
+                });
+              }
+              return updatedPayable;
+            }
+            return p;
+          }),
+        );
+        if (cancelled) return;
+        setPayables(updated);
       } catch (err) {
         if (!cancelled)
           setError(

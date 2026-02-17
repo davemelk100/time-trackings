@@ -486,6 +486,8 @@ export interface InvoiceRow {
   grand_total: number
   notes: string
   created_at: string
+  paid: boolean
+  paid_date: string | null
 }
 
 export function rowToInvoice(row: InvoiceRow): Invoice {
@@ -501,6 +503,8 @@ export function rowToInvoice(row: InvoiceRow): Invoice {
     grandTotal: Number(row.grand_total),
     notes: row.notes,
     createdAt: row.created_at,
+    paid: row.paid ?? false,
+    paidDate: row.paid_date ?? "",
   }
 }
 
@@ -542,7 +546,7 @@ export async function fetchAllInvoices(supabase: SupabaseClient): Promise<Invoic
 export async function updateInvoice(
   supabase: SupabaseClient,
   invoiceId: string,
-  updates: { total_time?: number; grand_total?: number; notes?: string },
+  updates: { total_time?: number; grand_total?: number; notes?: string; paid?: boolean; paid_date?: string | null },
 ): Promise<Invoice> {
   const { data, error } = await supabase
     .from("invoices")

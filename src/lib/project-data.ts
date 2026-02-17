@@ -432,6 +432,8 @@ export interface Invoice {
   grandTotal: number
   notes: string
   createdAt: string
+  paid: boolean
+  paidDate: string
 }
 
 // ===== Software Subscriptions =====

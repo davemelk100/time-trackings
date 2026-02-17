@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Pencil, ExternalLink } from "lucide-react"
+import { Pencil, ExternalLink, Check, CircleDashed } from "lucide-react"
 import type { Invoice, TimeEntry, Subscription, Payable, Link } from "@/lib/project-data"
 import {
   fetchTimeEntriesByInvoice,
@@ -142,6 +142,40 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
               <span className="text-muted-foreground">Payables</span>
               <p className="font-mono font-medium">{formatCurrency(invoice.totalPayables)}</p>
             </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            {invoice.paid ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                <Check className="h-3.5 w-3.5" />
+                Paid{invoice.paidDate ? ` on ${fmtDate(invoice.paidDate)}` : ""}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                <CircleDashed className="h-3.5 w-3.5" />
+                Unpaid
+              </span>
+            )}
+            {onInvoiceUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const nowPaid = !invoice.paid
+                  const paidDate = nowPaid ? new Date().toISOString().slice(0, 10) : null
+                  try {
+                    const updated = await updateInvoice(supabase, invoice.id, {
+                      paid: nowPaid,
+                      paid_date: paidDate,
+                    })
+                    onInvoiceUpdate(updated)
+                  } catch {
+                    // silent
+                  }
+                }}
+              >
+                {invoice.paid ? "Mark Unpaid" : "Mark as Paid"}
+              </Button>
+            )}
           </div>
           {invoice.notes && (
             <p className="mt-3 text-sm text-muted-foreground">{invoice.notes}</p>

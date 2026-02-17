@@ -122,6 +122,7 @@ export function TimeTrackingSection({
   refreshKey = 0,
   billingPeriodEnd = null,
   onRateChange,
+  onEntriesChange,
 }: {
   editMode?: boolean;
   clientId?: string;
@@ -130,6 +131,7 @@ export function TimeTrackingSection({
   refreshKey?: number;
   billingPeriodEnd?: string | null;
   onRateChange?: (hourlyRate: number | null, flatRate: number | null) => void;
+  onEntriesChange?: (entries: TimeEntry[]) => void;
 }) {
   const { supabase } = useAuth();
   const HOURLY_RATE = hourlyRate;
@@ -282,14 +284,16 @@ export function TimeTrackingSection({
 
       if (editingEntry) {
         const updated = { ...editingEntry, ...entryData };
-        setEntries((prev) =>
-          prev.map((e) => (e.id === editingEntry.id ? updated : e)),
-        );
+        const newEntries = entries.map((e) => (e.id === editingEntry.id ? updated : e));
+        setEntries(newEntries);
         await upsertTimeEntry(supabase, updated, clientId);
+        onEntriesChange?.(newEntries);
       } else {
         const newEntry: TimeEntry = { id: entryId, ...entryData };
-        setEntries((prev) => [...prev, newEntry]);
+        const newEntries = [...entries, newEntry];
+        setEntries(newEntries);
         await upsertTimeEntry(supabase, newEntry, clientId);
+        onEntriesChange?.(newEntries);
       }
       setDialogOpen(false);
     } catch (err) {

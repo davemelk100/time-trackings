@@ -390,7 +390,7 @@ export function ReportsSection() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Hourly Cost
+              Hourly Costs
             </CardTitle>
           </CardHeader>
           <CardContent>

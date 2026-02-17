@@ -23,7 +23,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { DashboardFooter } from "@/components/dashboard-footer"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
-import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate } from "@/lib/supabase"
+import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, upsertPayable } from "@/lib/supabase"
+import type { TimeEntry, Payable } from "@/lib/project-data"
 import { useAuth } from "@/lib/auth-context"
 import {
   Select,
@@ -311,7 +312,31 @@ export default function Page() {
                   const rows = await fetchClients(supabase)
                   setClients(rows)
                   setPayablesKey((k) => k + 1)
-                }} />
+                }} onEntriesChange={activeClient.id === "cygnet" ? async (entries: TimeEntry[]) => {
+                  const rate = activeClient.hourlyRate
+                  if (rate == null) return
+                  const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+                  const tenPercent = Math.round(totalHours * rate * 0.1 * 100) / 100
+                  // Delete any existing auto-generated 10% payable
+                  try {
+                    await supabase.from("payables").delete().eq("client_id", "cygnet").eq("description", "10% of time entries").is("invoice_id", null)
+                  } catch { /* may not exist yet */ }
+                  if (tenPercent > 0) {
+                    const payable: Payable = {
+                      id: crypto.randomUUID(),
+                      date: new Date().toISOString().slice(0, 10),
+                      description: "10% of time entries",
+                      amount: tenPercent,
+                      paid: false,
+                      paidDate: "",
+                      notes: "",
+                      attachments: [],
+                      links: [],
+                    }
+                    await upsertPayable(supabase, payable, "cygnet")
+                  }
+                  setPayablesKey((k) => k + 1)
+                } : undefined} />
                 <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} />
               </>
             )}

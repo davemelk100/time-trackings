@@ -291,7 +291,7 @@ export async function fetchSubscriptions(supabase: SupabaseClient, clientId: str
 export async function upsertSubscription(supabase: SupabaseClient, sub: Subscription, clientId: string): Promise<void> {
   const row = subscriptionToRow(sub, clientId)
   const { error } = await supabase.from("subscriptions").upsert(row)
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function deleteSubscription(supabase: SupabaseClient, id: string): Promise<void> {

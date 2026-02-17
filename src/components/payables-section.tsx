@@ -104,12 +104,7 @@ export function PayablesSection({
         setPayables(rows);
 
         const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-        const timeCost =
-          flatRate != null
-            ? flatRate
-            : hourlyRate != null
-              ? totalHours * hourlyRate
-              : 0;
+        const timeCost = hourlyRate != null ? totalHours * hourlyRate : 0;
         setTenPercent(Math.round(timeCost * 0.1 * 100) / 100);
       } catch (err) {
         if (!cancelled)

@@ -1,6 +1,6 @@
 ;
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,39 +78,47 @@ export function ReportsSection() {
   const [subSortKey, setSubSortKey] = useState<SubSortKey>("name");
   const [subSortDir, setSubSortDir] = useState<SortDir>("asc");
 
+  const reload = useCallback(async () => {
+    try {
+      const [clientRows, timeRows, subRows, payableRows] = await Promise.all([
+        fetchClients(supabase),
+        fetchAllTimeEntries(supabase),
+        fetchAllSubscriptions(supabase),
+        fetchAllPayables(supabase),
+      ]);
+      setClients(clientRows.length > 0 ? clientRows : defaultClients);
+      setEntries(timeRows);
+      setSubscriptions(subRows);
+      setPayables(payableRows);
+    } catch (err) {
+      setClients(defaultClients);
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setMounted(true);
+    }
+  }, [supabase]);
+
+  // Initial load
   useEffect(() => {
-    let cancelled = false;
     setMounted(false);
     setError(null);
+    reload();
+  }, [reload]);
 
-    async function load() {
-      try {
-        const [clientRows, timeRows, subRows, payableRows] = await Promise.all([
-          fetchClients(supabase),
-          fetchAllTimeEntries(supabase),
-          fetchAllSubscriptions(supabase),
-          fetchAllPayables(supabase),
-        ]);
-        if (cancelled) return;
-        setClients(clientRows.length > 0 ? clientRows : defaultClients);
-        setEntries(timeRows);
-        setSubscriptions(subRows);
-        setPayables(payableRows);
-      } catch (err) {
-        if (!cancelled) {
-          setClients(defaultClients);
-          setError(err instanceof Error ? err.message : "Failed to load data");
-        }
-      } finally {
-        if (!cancelled) setMounted(true);
-      }
-    }
+  // Real-time subscriptions — reload when any tracked table changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("reports-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_entries" }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "subscriptions" }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "payables" }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => reload())
+      .subscribe();
 
-    load();
     return () => {
-      cancelled = true;
+      supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, reload]);
 
   // Build client lookup maps
   const clientNameMap = useMemo(() => {
@@ -239,7 +247,7 @@ export function ReportsSection() {
     return copy;
   }, [filteredSubs, subSortKey, subSortDir]);
 
-  // Filtered payables (client + search only; exclude nextier mirrors to avoid duplicates)
+  // Filtered payables (client + search only; exclude nextier client to avoid duplicates with mirrored records)
   const filteredPayables = useMemo(() => {
     const q = search.toLowerCase();
     return payables.filter((p) => {
@@ -258,10 +266,23 @@ export function ReportsSection() {
   // Summary stats
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalHours, 0);
 
-  // Only include hourly costs; flat rate excluded until project is complete.
-  const totalTimeCost = filteredEntries.reduce((sum, e) => {
-    return sum + e.totalHours * (getRate(e.clientId) ?? 0);
-  }, 0);
+  // Hourly costs + flat rate costs
+  const totalTimeCost = useMemo(() => {
+    let total = 0;
+    const flatRateClients = new Set<string>();
+    for (const e of filteredEntries) {
+      const flat = getFlatRate(e.clientId);
+      if (flat != null) {
+        if (!flatRateClients.has(e.clientId)) {
+          flatRateClients.add(e.clientId);
+          total += flat;
+        }
+      } else {
+        total += e.totalHours * (getRate(e.clientId) ?? 0);
+      }
+    }
+    return total;
+  }, [filteredEntries, clientRateMap, clientFlatRateMap]);
 
   const totalSubsMonthly = filteredSubs.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -271,14 +292,23 @@ export function ReportsSection() {
 
   const totalPayables = filteredPayables.reduce((sum, p) => sum + p.amount, 0);
 
-  // Per-client time cost breakdown (hourly only; flat rate excluded until project complete)
+  // Per-client time cost breakdown (hourly + flat rate)
   const perClientTimeCost = useMemo(() => {
     const map: Record<string, number> = {};
+    const flatRateClients = new Set<string>();
     for (const e of filteredEntries) {
-      map[e.clientId] = (map[e.clientId] ?? 0) + e.totalHours * (getRate(e.clientId) ?? 0);
+      const flat = getFlatRate(e.clientId);
+      if (flat != null) {
+        if (!flatRateClients.has(e.clientId)) {
+          flatRateClients.add(e.clientId);
+          map[e.clientId] = flat;
+        }
+      } else {
+        map[e.clientId] = (map[e.clientId] ?? 0) + e.totalHours * (getRate(e.clientId) ?? 0);
+      }
     }
     return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
-  }, [filteredEntries, clientRateMap, clientNameMap]);
+  }, [filteredEntries, clientRateMap, clientFlatRateMap, clientNameMap]);
 
   // Per-client subscription cost breakdown (annualized)
   const perClientSubsCost = useMemo(() => {
@@ -290,13 +320,15 @@ export function ReportsSection() {
     return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
   }, [filteredSubs, clientNameMap]);
 
-  // Per-client payables breakdown
+  // Per-client+payee payables breakdown
   const perClientPayables = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of filteredPayables) {
-      map[p.clientId] = (map[p.clientId] ?? 0) + p.amount;
+      const payeeLabel = p.payee ? p.payee.charAt(0).toUpperCase() + p.payee.slice(1) : "Self";
+      const key = `${payeeLabel} (${getClientName(p.clientId)})`;
+      map[key] = (map[key] ?? 0) + p.amount;
     }
-    return Object.entries(map).sort(([a], [b]) => getClientName(a).localeCompare(getClientName(b)));
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredPayables, clientNameMap]);
 
   function toggleTimeSort(key: TimeSortKey) {
@@ -390,7 +422,7 @@ export function ReportsSection() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Hourly Costs
+              Time Costs
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -579,15 +611,17 @@ export function ReportsSection() {
                       {entry.tasks}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {entry.timeRange}
+                      {getFlatRate(entry.clientId) != null ? "N/A" : entry.timeRange}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {entry.totalHours.toFixed(2)}
+                      {getFlatRate(entry.clientId) != null ? "N/A" : entry.totalHours.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
-                      {getRate(entry.clientId) != null
-                        ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
-                        : "TBD"}
+                      {getFlatRate(entry.clientId) != null
+                        ? formatCurrency(getFlatRate(entry.clientId)!)
+                        : getRate(entry.clientId) != null
+                          ? formatCurrency(entry.totalHours * getRate(entry.clientId)!)
+                          : "TBD"}
                     </TableCell>
                   </TableRow>
                 ))
@@ -718,6 +752,7 @@ export function ReportsSection() {
                   <TableRow>
                     <TableHead className="w-[110px]">Date</TableHead>
                     <TableHead>Client</TableHead>
+                    <TableHead>Payee</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right w-[100px]">Amount</TableHead>
@@ -731,6 +766,9 @@ export function ReportsSection() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {getClientName(p.clientId)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {p.payee ? p.payee.charAt(0).toUpperCase() + p.payee.slice(1) : "Self"}
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {p.description}
@@ -746,7 +784,7 @@ export function ReportsSection() {
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={4} className="font-semibold">
+                    <TableCell colSpan={5} className="font-semibold">
                       Total
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold text-destructive">
@@ -806,9 +844,9 @@ export function ReportsSection() {
               {totalPayables > 0 && (
                 <div className="flex flex-col gap-0.5 items-end w-full text-muted-foreground mt-3">
                   <span className="font-medium text-foreground">Payables</span>
-                  {perClientPayables.map(([id, cost]) => (
-                    <div key={id} className="flex items-baseline gap-2">
-                      <span>{getClientName(id)}</span>
+                  {perClientPayables.map(([label, cost]) => (
+                    <div key={label} className="flex items-baseline gap-2">
+                      <span>{label}</span>
                       <span className="font-mono">&minus;{formatCurrency(cost)}</span>
                     </div>
                   ))}

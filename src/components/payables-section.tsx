@@ -157,6 +157,8 @@ export function PayablesSection({
 
   const total = payables.reduce((sum, p) => sum + p.amount, 0);
 
+  const defaultPayee = clientId === "cygnet" ? "nextier" : "self";
+
   const openAdd = useCallback(() => {
     setEditingId(null);
     setForm({
@@ -165,7 +167,7 @@ export function PayablesSection({
       amount: 0,
       description: "",
       links: [],
-      payee: "self",
+      payee: defaultPayee,
     });
     setPendingFiles([]);
     setExistingAttachments([]);

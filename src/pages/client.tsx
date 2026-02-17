@@ -94,7 +94,7 @@ export default function ClientPage() {
                 <SelectItem value="current">Current Period</SelectItem>
                 {invoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
-                    {inv.invoiceNumber} ({inv.periodStart && inv.periodEnd
+                    {inv.paid ? "\u2713" : "\u25CB"} {inv.invoiceNumber} ({inv.periodStart && inv.periodEnd
                       ? `${(() => { const d = new Date(inv.periodStart + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()} - ${(() => { const d = new Date(inv.periodEnd + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; })()}`
                       : "N/A"})
                   </SelectItem>

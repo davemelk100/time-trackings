@@ -88,6 +88,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
   }
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+  const isFlatRate = entries.length > 0 && totalHours === 0
 
   function fmtDate(s: string) { const d = new Date(s + "T00:00:00"); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; }
   const periodLabel = invoice.periodStart && invoice.periodEnd
@@ -108,11 +109,13 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
               <p className="font-medium">{periodLabel}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Hourly Rate</span>
+              <span className="text-muted-foreground">{isFlatRate ? "Flat Rate" : "Hourly Rate"}</span>
               <p className="font-mono font-medium">
-                {totalHours > 0
-                  ? `${formatCurrency(invoice.totalTime / totalHours)}/hr`
-                  : "\u2014"}
+                {isFlatRate
+                  ? formatCurrency(invoice.totalTime)
+                  : totalHours > 0
+                    ? `${formatCurrency(invoice.totalTime / totalHours)}/hr`
+                    : "\u2014"}
               </p>
             </div>
             <div>
@@ -197,8 +200,8 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                     <TableHead className="w-[110px]">Date</TableHead>
                     <TableHead>Tasks</TableHead>
                     <TableHead>Notes</TableHead>
-                    <TableHead>Time Range</TableHead>
-                    <TableHead className="w-[80px] text-right">Hours</TableHead>
+                    {!isFlatRate && <TableHead>Time Range</TableHead>}
+                    {!isFlatRate && <TableHead className="w-[80px] text-right">Hours</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -208,11 +211,9 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                         {fmtDate(entry.date)}
                       </TableCell>
                       <TableCell className="max-w-[220px] text-muted-foreground">{entry.tasks}</TableCell>
-                      <TableCell className="max-w-[160px] text-muted-foreground">{entry.notes || "\u2014"}</TableCell>
-                      <TableCell className="whitespace-nowrap">{entry.timeRange}</TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="max-w-[160px] text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
-                          {entry.totalHours.toFixed(2)}
+                          {entry.notes || "\u2014"}
                           {entry.links && entry.links.length > 0 && (
                             <button
                               className="text-muted-foreground hover:text-primary"
@@ -224,15 +225,23 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                           )}
                         </span>
                       </TableCell>
+                      {!isFlatRate && <TableCell className="whitespace-nowrap">{entry.timeRange}</TableCell>}
+                      {!isFlatRate && (
+                      <TableCell className="text-right font-mono">
+                        {entry.totalHours.toFixed(2)}
+                      </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={4} className="font-semibold">Total</TableCell>
+                    <TableCell colSpan={isFlatRate ? 3 : 4} className="font-semibold">Total</TableCell>
+                    {!isFlatRate && (
                     <TableCell className="text-right font-mono font-semibold">
-                      {entries.reduce((sum, e) => sum + e.totalHours, 0).toFixed(2)}
+                      {totalHours.toFixed(2)}
                     </TableCell>
+                    )}
                   </TableRow>
                 </TableFooter>
               </Table>

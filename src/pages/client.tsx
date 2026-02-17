@@ -3,7 +3,6 @@ import { useParams, useSearchParams, Navigate } from "react-router-dom"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TimeTrackingSection } from "@/components/time-tracking-section"
 import { SubscriptionsSection } from "@/components/subscriptions-section"
-import { PayablesSection } from "@/components/payables-section"
 import { GrandTotalSection } from "@/components/grand-total-section"
 import { ArchivedInvoiceView } from "@/components/archived-invoice-view"
 import { DashboardFooter } from "@/components/dashboard-footer"
@@ -25,7 +24,6 @@ export default function ClientPage() {
   const { supabase } = useAuth()
   const [client, setClient] = useState<Client | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [payablesKey, setPayablesKey] = useState(0)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<string>("current")
 
@@ -117,7 +115,7 @@ export default function ClientPage() {
           )}
         </div>
         {selectedInvoice ? (
-          <ArchivedInvoiceView invoice={selectedInvoice} onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
+          <ArchivedInvoiceView invoice={selectedInvoice} hidePayables onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
         ) : (
           <>
             {client.id !== "nextier" && (
@@ -128,10 +126,7 @@ export default function ClientPage() {
                 )}
               </>
             )}
-            {client.id === "nextier" && (
-              <PayablesSection editMode={false} clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
-            )}
-            <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={payablesKey} hidePayables={client.id !== "nextier"} />
+            <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={0} hidePayables />
           </>
         )}
       </main>

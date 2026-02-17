@@ -39,7 +39,7 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Invoice; onInvoiceUpdate?: (updated: Invoice) => void }) {
+export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = false }: { invoice: Invoice; onInvoiceUpdate?: (updated: Invoice) => void; hidePayables?: boolean }) {
   const { supabase } = useAuth()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [subs, setSubs] = useState<Subscription[]>([])
@@ -141,10 +141,12 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
               <span className="text-muted-foreground">Subscriptions</span>
               <p className="font-mono font-medium">{formatCurrency(invoice.totalSubscriptions)}</p>
             </div>
-            <div>
-              <span className="text-muted-foreground">Payables</span>
-              <p className="font-mono font-medium">{formatCurrency(invoice.totalPayables)}</p>
-            </div>
+            {!hidePayables && (
+              <div>
+                <span className="text-muted-foreground">Payables</span>
+                <p className="font-mono font-medium">{formatCurrency(invoice.totalPayables)}</p>
+              </div>
+            )}
           </div>
           <div className="mt-4 flex items-center gap-2">
             {invoice.paid ? (
@@ -306,7 +308,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
       )}
 
       {/* Archived Payables */}
-      {payables.length > 0 && (
+      {!hidePayables && payables.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>{invoice.clientId === "nextier" ? "Nextier Proceeds" : "Payables"}</CardTitle>
@@ -383,7 +385,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate }: { invoice: Inv
                     <span className="font-mono">{formatCurrency(invoice.totalSubscriptions)}</span>
                   </div>
                 )}
-                {invoice.totalPayables > 0 && (
+                {!hidePayables && invoice.totalPayables > 0 && (
                   <div className="flex items-baseline gap-2">
                     <span>{invoice.clientId === "nextier" ? "Proceeds" : "Payables"}</span>
                     <span className="font-mono">{invoice.clientId === "nextier" ? "" : "\u2212"}{formatCurrency(invoice.totalPayables)}</span>

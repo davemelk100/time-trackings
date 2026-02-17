@@ -416,6 +416,7 @@ export interface Payable {
   notes: string
   attachments: Attachment[]
   links: Link[]
+  payee?: string
 }
 
 // ===== Invoices =====

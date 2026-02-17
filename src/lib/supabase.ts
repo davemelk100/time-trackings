@@ -322,6 +322,7 @@ export interface PayableRow {
   notes: string
   attachments: Attachment[]
   links: Link[]
+  payee: string | null
 }
 
 export function rowToPayable(row: PayableRow): Payable {
@@ -335,6 +336,7 @@ export function rowToPayable(row: PayableRow): Payable {
     notes: row.notes,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
     links: Array.isArray(row.links) ? row.links : [],
+    payee: row.payee ?? undefined,
   }
 }
 
@@ -350,6 +352,7 @@ export function payableToRow(p: Payable, clientId: string): Omit<PayableRow, "id
     notes: p.notes,
     attachments: p.attachments ?? [],
     links: p.links ?? [],
+    payee: p.payee || null,
   }
 }
 

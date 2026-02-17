@@ -36,6 +36,13 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 function formatCurrency(n: number) {
@@ -56,6 +63,7 @@ const emptyForm = {
   date: todayISO(),
   notes: "",
   links: [] as Link[],
+  payee: "self",
 };
 
 export function PayablesSection({
@@ -129,15 +137,16 @@ export function PayablesSection({
     setForm({
       ...emptyForm,
       date: todayISO(),
-      amount: tenPercent,
-      description: tenPercent > 0 ? "10% of time entries" : "",
+      amount: 0,
+      description: "",
       links: [],
+      payee: "self",
     });
     setPendingFiles([]);
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setDialogOpen(true);
-  }, [tenPercent]);
+  }, []);
 
   const openEdit = useCallback((p: Payable) => {
     setEditingId(p.id);
@@ -147,6 +156,7 @@ export function PayablesSection({
       date: p.date,
       notes: p.notes,
       links: p.links ?? [],
+      payee: p.payee || "self",
     });
     setPendingFiles([]);
     setExistingAttachments(p.attachments ?? []);
@@ -192,22 +202,46 @@ export function PayablesSection({
           notes: form.notes,
           attachments: finalAttachments,
           links: form.links,
+          payee: form.payee === "self" ? undefined : form.payee,
         };
         setPayables((prev) =>
           prev.map((p) => (p.id === editingId ? updated : p)),
         );
         await upsertPayable(supabase, updated, clientId);
 
-        // Sync changes to the Nextier mirror
+        // Sync changes to the Nextier mirror (only if payee is/was nextier)
         if (clientId !== "nextier" && existing) {
-          await updateNextierMirror(supabase, existing.description, existing.amount, existing.date, {
-            description: updated.description,
-            amount: updated.amount,
-            date: updated.date,
-            notes: updated.notes,
-            attachments: finalAttachments,
-            links: form.links,
-          });
+          const wasNextier = existing.payee === "nextier";
+          const isNextier = form.payee === "nextier";
+
+          if (wasNextier && isNextier) {
+            // Update the mirror
+            await updateNextierMirror(supabase, existing.description, existing.amount, existing.date, {
+              description: updated.description,
+              amount: updated.amount,
+              date: updated.date,
+              notes: updated.notes,
+              attachments: finalAttachments,
+              links: form.links,
+            });
+          } else if (wasNextier && !isNextier) {
+            // Remove the mirror
+            await deletePayableByMatch(supabase, "nextier", existing.description, existing.amount, existing.date);
+          } else if (!wasNextier && isNextier) {
+            // Create a new mirror
+            const nextierPayable: Payable = {
+              id: crypto.randomUUID(),
+              description: form.description,
+              amount: form.amount,
+              date: form.date,
+              paid: true,
+              paidDate: todayISO(),
+              notes: form.notes,
+              attachments: finalAttachments,
+              links: form.links,
+            };
+            await upsertPayable(supabase, nextierPayable, "nextier");
+          }
         }
       } else {
         const newPayable: Payable = {
@@ -220,12 +254,13 @@ export function PayablesSection({
           notes: form.notes,
           attachments: finalAttachments,
           links: form.links,
+          payee: form.payee === "self" ? undefined : form.payee,
         };
         setPayables((prev) => [newPayable, ...prev]);
         await upsertPayable(supabase, newPayable, clientId);
 
-        // Mirror as a paid proceed on the Nextier client
-        if (clientId !== "nextier") {
+        // Mirror as a paid proceed on the Nextier client only when payee is nextier
+        if (clientId !== "nextier" && form.payee === "nextier") {
           const nextierPayable: Payable = {
             id: crypto.randomUUID(),
             description: form.description,
@@ -269,8 +304,8 @@ export function PayablesSection({
         }
         await deletePayableApi(supabase, id);
 
-        // Also delete the mirror record on Nextier
-        if (clientId !== "nextier" && toDelete) {
+        // Also delete the mirror record on Nextier (only if payee was nextier)
+        if (clientId !== "nextier" && toDelete?.payee === "nextier") {
           await deletePayableByMatch(
             supabase,
             "nextier",
@@ -332,6 +367,7 @@ export function PayablesSection({
                 <TableRow>
                   <TableHead className="w-[110px]">Date</TableHead>
                   <TableHead>Description</TableHead>
+                  {clientId !== "nextier" && <TableHead className="w-[100px]">Payee</TableHead>}
                   <TableHead>Notes</TableHead>
                   <TableHead className="w-[100px] text-right">Amount</TableHead>
                   {editMode && clientId !== "nextier" && (
@@ -350,6 +386,11 @@ export function PayablesSection({
                       <TableCell className="font-medium">
                         {p.description}
                       </TableCell>
+                      {clientId !== "nextier" && (
+                        <TableCell className="text-muted-foreground">
+                          {p.payee === "nextier" ? "Nextier" : "\u2014"}
+                        </TableCell>
+                      )}
                       <TableCell className="max-w-[160px] text-muted-foreground">
                         {p.notes || "\u2014"}
                       </TableCell>
@@ -402,7 +443,7 @@ export function PayablesSection({
               </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">
+                    <TableCell colSpan={clientId !== "nextier" ? 4 : 3} className="font-semibold">
                       Total
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold text-primary">
@@ -514,6 +555,39 @@ export function PayablesSection({
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
+            {clientId !== "nextier" && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Payee</Label>
+                <Select
+                  value={form.payee}
+                  onValueChange={(value) => {
+                    if (value === "nextier") {
+                      setForm({
+                        ...form,
+                        payee: value,
+                        amount: tenPercent,
+                        description: tenPercent > 0 ? "10% of time entries" : form.description,
+                      });
+                    } else {
+                      setForm({
+                        ...form,
+                        payee: value,
+                        amount: 0,
+                        description: "",
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">Self</SelectItem>
+                    <SelectItem value="nextier">Nextier</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-desc">Description</Label>
               <Input

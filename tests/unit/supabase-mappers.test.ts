@@ -142,7 +142,7 @@ describe("rowToPayable", () => {
   it("maps paid_date null to empty string", () => {
     const row: PayableRow = {
       id: "p1", client_id: "c1", description: "Test", amount: 100,
-      date: "2025-01-01", paid: false, paid_date: null, notes: "", attachments: [], links: [],
+      date: "2025-01-01", paid: false, paid_date: null, notes: "", attachments: [], links: [], payee: null,
     }
     expect(rowToPayable(row).paidDate).toBe("")
   })
@@ -151,7 +151,7 @@ describe("rowToPayable", () => {
     const row = {
       id: "p2", client_id: "c1", description: "Test", amount: "200.5" as any,
       date: "2025-01-01", paid: true, paid_date: "2025-01-15", notes: "",
-      attachments: [], links: [],
+      attachments: [], links: [], payee: null,
     }
     expect(rowToPayable(row).amount).toBe(200.5)
   })
@@ -160,7 +160,7 @@ describe("rowToPayable", () => {
     const row = {
       id: "p3", client_id: "c1", description: "Test", amount: 50,
       date: "2025-01-01", paid: false, paid_date: null, notes: "",
-      attachments: "invalid" as any, links: [],
+      attachments: "invalid" as any, links: [], payee: null,
     }
     expect(rowToPayable(row).attachments).toEqual([])
   })

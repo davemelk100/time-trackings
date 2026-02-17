@@ -71,6 +71,7 @@ export default function ArchivesPage() {
                     <TableHead>Invoice #</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Period</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Time</TableHead>
                     <TableHead className="text-right">Subs</TableHead>
                     <TableHead className="text-right">Payables</TableHead>
@@ -80,13 +81,13 @@ export default function ArchivesPage() {
                 <TableBody>
                   {!loaded ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : invoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         No archived invoices yet.
                       </TableCell>
                     </TableRow>
@@ -108,6 +109,13 @@ export default function ArchivesPage() {
                           </TableCell>
                           <TableCell>{clientName(inv.clientId)}</TableCell>
                           <TableCell className="text-muted-foreground">{periodLabel}</TableCell>
+                          <TableCell>
+                            {inv.paid ? (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">Paid</span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Unpaid</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(inv.totalTime)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(inv.totalSubscriptions)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(inv.totalPayables)}</TableCell>

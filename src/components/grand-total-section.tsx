@@ -93,7 +93,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
                   </div>
                 )}
                 {!hidePayables && payablesPaid > 0 && (
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 text-destructive">
                     <span>{clientId === "nextier" ? "Proceeds" : "Payables"}</span>
                     <span className="font-mono">{clientId === "nextier" ? "" : "\u2212"}{formatCurrency(payablesPaid)}</span>
                   </div>

@@ -33,6 +33,7 @@ import {
   type PayableWithClient,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { demoClients, demoAllTimeEntries, demoAllSubscriptions, demoAllPayables } from "@/lib/demo-data";
 
 
 function formatCurrency(n: number) {
@@ -52,7 +53,7 @@ type TimeSortKey = "date" | "hours" | "cost";
 type SubSortKey = "name" | "category" | "amount";
 type SortDir = "asc" | "desc";
 
-export function ReportsSection() {
+export function ReportsSection({ isDemo = false }: { isDemo?: boolean } = {}) {
   const { supabase } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [entries, setEntries] = useState<TimeEntryWithClient[]>([]);
@@ -79,6 +80,15 @@ export function ReportsSection() {
   const [subSortDir, setSubSortDir] = useState<SortDir>("asc");
 
   const reload = useCallback(async () => {
+    if (isDemo) {
+      setClients(demoClients);
+      setEntries(demoAllTimeEntries);
+      setSubscriptions(demoAllSubscriptions);
+      setPayables(demoAllPayables);
+      setMounted(true);
+      return;
+    }
+
     try {
       const [clientRows, timeRows, subRows, payableRows] = await Promise.all([
         fetchClients(supabase),
@@ -96,7 +106,7 @@ export function ReportsSection() {
     } finally {
       setMounted(true);
     }
-  }, [supabase]);
+  }, [supabase, isDemo]);
 
   // Initial load
   useEffect(() => {
@@ -105,8 +115,9 @@ export function ReportsSection() {
     reload();
   }, [reload]);
 
-  // Real-time subscriptions — reload when any tracked table changes
+  // Real-time subscriptions — reload when any tracked table changes (skip in demo)
   useEffect(() => {
+    if (isDemo) return;
     const channel = supabase
       .channel("reports-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "time_entries" }, () => reload())

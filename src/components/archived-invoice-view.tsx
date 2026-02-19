@@ -30,6 +30,7 @@ import {
   updateInvoice,
 } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { useDemoGuard } from "@/lib/use-demo-guard"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -39,8 +40,10 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = false }: { invoice: Invoice; onInvoiceUpdate?: (updated: Invoice) => void; hidePayables?: boolean }) {
+export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = false, isDemo: isDemoProp = false }: { invoice: Invoice; onInvoiceUpdate?: (updated: Invoice) => void; hidePayables?: boolean; isDemo?: boolean }) {
   const { supabase } = useAuth()
+  const { guardAction } = useDemoGuard()
+  const demoBlock = guardAction(() => {})
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [subs, setSubs] = useState<Subscription[]>([])
   const [payables, setPayables] = useState<Payable[]>([])
@@ -53,6 +56,14 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = f
   const [rateSaving, setRateSaving] = useState(false)
 
   useEffect(() => {
+    if (isDemoProp) {
+      setEntries([])
+      setSubs([])
+      setPayables([])
+      setLoaded(true)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -75,7 +86,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = f
 
     load()
     return () => { cancelled = true }
-  }, [invoice.id, supabase])
+  }, [invoice.id, supabase, isDemoProp])
 
   if (!loaded) {
     return (
@@ -165,6 +176,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = f
                 variant="outline"
                 size="sm"
                 onClick={async () => {
+                  if (isDemoProp) { demoBlock(); return }
                   const nowPaid = !invoice.paid
                   const paidDate = nowPaid ? new Date().toISOString().slice(0, 10) : null
                   try {
@@ -172,7 +184,7 @@ export function ArchivedInvoiceView({ invoice, onInvoiceUpdate, hidePayables = f
                       paid: nowPaid,
                       paid_date: paidDate,
                     })
-                    onInvoiceUpdate(updated)
+                    onInvoiceUpdate!(updated)
                   } catch {
                     // silent
                   }

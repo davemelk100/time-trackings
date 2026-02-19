@@ -14,6 +14,7 @@ import {
 import type { Invoice, Client } from "@/lib/project-data"
 import { fetchAllInvoices, fetchClients } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { demoAllInvoices, demoClients } from "@/lib/demo-data"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -24,12 +25,19 @@ function formatCurrency(n: number) {
 }
 
 export default function ArchivesPage() {
-  const { supabase } = useAuth()
+  const { supabase, isDemo } = useAuth()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    if (isDemo) {
+      setInvoices(demoAllInvoices)
+      setClients(demoClients)
+      setLoaded(true)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -50,7 +58,7 @@ export default function ArchivesPage() {
 
     load()
     return () => { cancelled = true }
-  }, [supabase])
+  }, [supabase, isDemo])
 
   const clientName = (clientId: string) =>
     clients.find((c) => c.id === clientId)?.name ?? clientId

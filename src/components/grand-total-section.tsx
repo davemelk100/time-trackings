@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchTimeEntries, fetchSubscriptions, fetchPayables } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { demoTimeEntries, demoSubscriptions, demoPayables } from "@/lib/demo-data"
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -12,7 +13,7 @@ function formatCurrency(n: number) {
   }).format(n)
 }
 
-export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null, refreshKey = 0, hidePayables = false }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null; refreshKey?: number; hidePayables?: boolean }) {
+export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flatRate = null, refreshKey = 0, hidePayables = false, isDemo: isDemoProp = false }: { clientId?: string; hourlyRate?: number | null; flatRate?: number | null; refreshKey?: number; hidePayables?: boolean; isDemo?: boolean }) {
   const { supabase } = useAuth()
   const HOURLY_RATE = hourlyRate
   const FLAT_RATE = flatRate
@@ -22,6 +23,25 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    if (isDemoProp) {
+      const entries = demoTimeEntries[clientId] ?? []
+      const subs = demoSubscriptions[clientId] ?? []
+      const pays = demoPayables[clientId] ?? []
+
+      const noData = entries.length === 0 && subs.length === 0 && pays.length === 0
+      const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0)
+      setTimeCost(noData ? null : HOURLY_RATE != null ? totalHours * HOURLY_RATE : FLAT_RATE != null ? FLAT_RATE : null)
+
+      const monthly = subs.reduce((sum, s) => {
+        if (s.billingCycle === "monthly") return sum + s.amount
+        return sum + s.amount / 12
+      }, 0)
+      setSubscriptionMonthly(monthly)
+      setPayablesPaid(pays.reduce((sum, p) => sum + p.amount, 0))
+      setLoaded(true)
+      return
+    }
+
     let cancelled = false
     setLoaded(false)
 
@@ -56,7 +76,7 @@ export function GrandTotalSection({ clientId = "cygnet", hourlyRate = null, flat
 
     load()
     return () => { cancelled = true }
-  }, [clientId, supabase, refreshKey])
+  }, [clientId, supabase, refreshKey, isDemoProp])
 
   if (!loaded) return null
 

@@ -5,11 +5,13 @@ import { createClient, fetchPasscodes, type PasscodeRow } from "@/lib/supabase"
 interface Session {
   role: "admin" | "client"
   clientId: string | null
+  isDemo?: boolean
 }
 
 interface AuthContextValue {
   supabase: SupabaseClient
   isAdmin: boolean
+  isDemo: boolean
   clientId: string | null
   passcodesReady: boolean
   signIn: (passcode: string) => { error: string | null; role?: string; clientId?: string | null }
@@ -78,9 +80,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = session?.role === "admin"
+  const isDemo = session?.isDemo === true
   const clientId = session?.clientId ?? null
 
   function signIn(passcode: string) {
+    // Demo mode — hardcoded passcode bypasses DB/env lookup
+    if (passcode === "62318") {
+      const demoSession: Session = { role: "admin", clientId: null, isDemo: true }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(demoSession))
+      setSession(demoSession)
+      return { error: null, role: "admin" as const, clientId: null }
+    }
+
     // Try DB passcodes first, then env-var fallback
     const matched = matchPasscodeFromDB(passcode, dbPasscodes) ?? matchPasscodeFromEnv(passcode)
     if (!matched) return { error: "Invalid passcode" }
@@ -99,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ supabase, isAdmin, clientId, passcodesReady, signIn, signOut, reloadPasscodes }}>
+    <AuthContext.Provider value={{ supabase, isAdmin, isDemo, clientId, passcodesReady, signIn, signOut, reloadPasscodes }}>
       {children}
     </AuthContext.Provider>
   )

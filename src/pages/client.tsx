@@ -17,17 +17,31 @@ import { CalendarCheck } from "lucide-react"
 import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
 import { fetchClients, fetchInvoices } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { demoClients, demoInvoices } from "@/lib/demo-data"
 
 export default function ClientPage() {
   const { clientId = "" } = useParams()
   const [searchParams] = useSearchParams()
-  const { supabase } = useAuth()
+  const { supabase, isDemo } = useAuth()
   const [client, setClient] = useState<Client | null>(null)
   const [mounted, setMounted] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<string>("current")
 
   useEffect(() => {
+    if (isDemo) {
+      const found = demoClients.find((c) => c.id === clientId)
+      setClient(found ?? null)
+      const inv = demoInvoices[clientId] ?? []
+      setInvoices(inv)
+      const invoiceParam = searchParams.get("invoice")
+      if (invoiceParam && inv.some((i) => i.id === invoiceParam)) {
+        setSelectedPeriod(invoiceParam)
+      }
+      setMounted(true)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -59,7 +73,7 @@ export default function ClientPage() {
 
     load()
     return () => { cancelled = true }
-  }, [clientId, supabase, searchParams])
+  }, [clientId, supabase, searchParams, isDemo])
 
   const selectedInvoice = selectedPeriod !== "current"
     ? invoices.find((inv) => inv.id === selectedPeriod) ?? null
@@ -115,18 +129,18 @@ export default function ClientPage() {
           )}
         </div>
         {selectedInvoice ? (
-          <ArchivedInvoiceView invoice={selectedInvoice} hidePayables onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
+          <ArchivedInvoiceView invoice={selectedInvoice} hidePayables onInvoiceUpdate={isDemo ? undefined : (updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} isDemo={isDemo} />
         ) : (
           <>
             {client.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode={false} clientId={client.id} clientName={client.name} hourlyRate={client.hourlyRate} flatRate={client.flatRate} billingPeriodEnd={client.billingPeriodEnd} />
+                <TimeTrackingSection editMode={false} clientId={client.id} clientName={client.name} hourlyRate={client.hourlyRate} flatRate={client.flatRate} billingPeriodEnd={client.billingPeriodEnd} isDemo={isDemo} />
                 {client.id !== "mindflip" && (
-                  <SubscriptionsSection editMode={false} clientId={client.id} />
+                  <SubscriptionsSection editMode={false} clientId={client.id} isDemo={isDemo} />
                 )}
               </>
             )}
-            <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={0} hidePayables />
+            <GrandTotalSection clientId={client.id} hourlyRate={client.hourlyRate} flatRate={client.flatRate} refreshKey={0} hidePayables isDemo={isDemo} />
           </>
         )}
       </main>

@@ -45,6 +45,8 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { useDemoGuard } from "@/lib/use-demo-guard";
+import { demoSubscriptions } from "@/lib/demo-data";
 import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 function formatCurrency(n: number) {
@@ -70,12 +72,16 @@ export function SubscriptionsSection({
   editMode = false,
   clientId = "cygnet",
   refreshKey = 0,
+  isDemo: isDemoProp = false,
 }: {
   editMode?: boolean;
   clientId?: string;
   refreshKey?: number;
+  isDemo?: boolean;
 }) {
   const { supabase } = useAuth();
+  const { guardAction } = useDemoGuard();
+  const demoBlock = guardAction(() => {});
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +104,12 @@ export function SubscriptionsSection({
 
   // Fetch subscriptions from Supabase on mount / client change
   useEffect(() => {
+    if (isDemoProp) {
+      setSubscriptions(demoSubscriptions[clientId] ?? []);
+      setLoaded(true);
+      return;
+    }
+
     let cancelled = false;
     setLoaded(false);
     setError(null);
@@ -122,7 +134,7 @@ export function SubscriptionsSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase, refreshKey]);
+  }, [clientId, supabase, refreshKey, isDemoProp]);
 
   const totalMonthly = subscriptions.reduce((sum, s) => {
     if (s.billingCycle === "monthly") return sum + s.amount;
@@ -132,6 +144,7 @@ export function SubscriptionsSection({
   const totalAnnual = totalMonthly * 12;
 
   const openAdd = useCallback(() => {
+    if (isDemoProp) { demoBlock(); return }
     setEditingId(null);
     setForm(emptySubscription);
     setPendingFiles([]);
@@ -141,6 +154,7 @@ export function SubscriptionsSection({
   }, []);
 
   const openEdit = useCallback((sub: Subscription) => {
+    if (isDemoProp) { demoBlock(); return }
     setEditingId(sub.id);
     setForm({
       name: sub.name,
@@ -159,6 +173,7 @@ export function SubscriptionsSection({
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (isDemoProp) { demoBlock(); return }
     if (!form.name.trim()) return;
 
     const subId = editingId ?? crypto.randomUUID();
@@ -230,6 +245,7 @@ export function SubscriptionsSection({
 
   const handleDelete = useCallback(
     async (id: string) => {
+      if (isDemoProp) { demoBlock(); return }
       const prev = subscriptions;
       const subToDelete = subscriptions.find((s) => s.id === id);
       setSubscriptions((current) => current.filter((s) => s.id !== id));

@@ -26,6 +26,8 @@ import { type Client, type Invoice, defaultClients } from "@/lib/project-data"
 import { fetchClients, insertClient, fetchInvoices, createInvoice, updateClientBillingPeriodStart, updateClientBillingPeriodEnd, updateClientRate, updateClientName, upsertPayable, fetchPasscodes, insertPasscode, updatePasscode, deletePasscode, type PasscodeRow } from "@/lib/supabase"
 import type { TimeEntry, Payable } from "@/lib/project-data"
 import { useAuth } from "@/lib/auth-context"
+import { useDemoGuard } from "@/lib/use-demo-guard"
+import { demoClients, demoInvoices, demoPasscodes } from "@/lib/demo-data"
 import {
   Select,
   SelectContent,
@@ -55,6 +57,7 @@ import {
 
 export default function Page() {
   const { supabase, reloadPasscodes } = useAuth()
+  const { isDemo, guardAction } = useDemoGuard()
   const [clients, setClients] = useState<Client[]>([])
   const [activeClientId, setActiveClientId] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -97,8 +100,15 @@ export default function Page() {
   const [passcodeError, setPasscodeError] = useState<string | null>(null)
   const [passcodeDeleteId, setPasscodeDeleteId] = useState<string | null>(null)
 
-  // Fetch clients from Supabase on mount
+  // Fetch clients from Supabase on mount (or load demo data)
   useEffect(() => {
+    if (isDemo) {
+      setClients(demoClients)
+      setActiveClientId((prev) => prev || demoClients[0].id)
+      setMounted(true)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -130,11 +140,18 @@ export default function Page() {
 
     load()
     return () => { cancelled = true }
-  }, [supabase])
+  }, [supabase, isDemo])
 
   // Fetch invoices when active client changes
   useEffect(() => {
     if (!activeClientId) return
+
+    if (isDemo) {
+      setInvoices(demoInvoices[activeClientId] ?? [])
+      setSelectedPeriod("current")
+      return
+    }
+
     let cancelled = false
 
     async function loadInvoices() {
@@ -151,10 +168,15 @@ export default function Page() {
 
     loadInvoices()
     return () => { cancelled = true }
-  }, [activeClientId, supabase, refreshKey])
+  }, [activeClientId, supabase, refreshKey, isDemo])
 
   // Fetch passcodes on mount
   useEffect(() => {
+    if (isDemo) {
+      setPasscodes(demoPasscodes)
+      return
+    }
+
     let cancelled = false
     async function loadPasscodes() {
       try {
@@ -166,14 +188,17 @@ export default function Page() {
     }
     loadPasscodes()
     return () => { cancelled = true }
-  }, [supabase])
+  }, [supabase, isDemo])
 
   const activeClient = clients.find((c) => c.id === activeClientId) ?? clients[0]
   const selectedInvoice = selectedPeriod !== "current"
     ? invoices.find((inv) => inv.id === selectedPeriod) ?? null
     : null
 
+  const demoBlock = guardAction(() => {})
+
   async function handleArchive() {
+    if (isDemo) { demoBlock(); return }
     if (!activeClient) return
     setArchiving(true)
     try {
@@ -205,6 +230,7 @@ export default function Page() {
   }
 
   async function handleAddClient() {
+    if (isDemo) { demoBlock(); return }
     if (!newName.trim()) return
     setSaving(true)
     setAddError(null)
@@ -231,6 +257,7 @@ export default function Page() {
   }
 
   async function handleRenameClient() {
+    if (isDemo) { demoBlock(); return }
     if (!renameName.trim() || !activeClient) return
     setRenaming(true)
     try {
@@ -270,6 +297,7 @@ export default function Page() {
   }
 
   async function handleSavePasscode() {
+    if (isDemo) { demoBlock(); return }
     if (!passcodeCode.trim() || !passcodeLabel.trim()) return
     setPasscodeSaving(true)
     setPasscodeError(null)
@@ -297,6 +325,7 @@ export default function Page() {
   }
 
   async function handleDeletePasscode() {
+    if (isDemo) { demoBlock(); return }
     if (!passcodeDeleteId) return
     try {
       await deletePasscode(supabase, passcodeDeleteId)
@@ -343,6 +372,7 @@ export default function Page() {
               size="icon"
               className="h-8 w-8 shrink-0"
               onClick={() => {
+                if (isDemo) { demoBlock(); return }
                 setRenameName(activeClient?.name ?? "")
                 setRenameDialogOpen(true)
               }}
@@ -354,7 +384,7 @@ export default function Page() {
               variant="outline"
               size="icon"
               className="h-8 w-8 shrink-0"
-              onClick={() => setAddDialogOpen(true)}
+              onClick={() => { if (isDemo) { demoBlock(); return } setAddDialogOpen(true) }}
               aria-label="Add client"
             >
               <Plus className="h-4 w-4" />
@@ -371,6 +401,7 @@ export default function Page() {
                 size="sm"
                 className="gap-1.5 shrink-0"
                 onClick={async () => {
+                  if (isDemo) { demoBlock(); return }
                   const today = new Date().toISOString().slice(0, 10)
                   await updateClientBillingPeriodStart(supabase, activeClient.id, today)
                   const rows = await fetchClients(supabase)
@@ -390,6 +421,7 @@ export default function Page() {
                     <button
                       className="ml-1 rounded-full p-0.5 hover:bg-background"
                       onClick={async () => {
+                        if (isDemo) { demoBlock(); return }
                         await updateClientBillingPeriodEnd(supabase, activeClient.id, null)
                         const rows = await fetchClients(supabase)
                         setClients(rows)
@@ -405,6 +437,7 @@ export default function Page() {
                     size="sm"
                     className="gap-1.5 shrink-0"
                     onClick={async () => {
+                      if (isDemo) { demoBlock(); return }
                       const today = new Date().toISOString().slice(0, 10)
                       await updateClientBillingPeriodEnd(supabase, activeClient.id, today)
                       const rows = await fetchClients(supabase)
@@ -415,7 +448,7 @@ export default function Page() {
                     End Billing Period
                   </Button>
                 )}
-                <Button onClick={() => { setArchiveHourlyRate(activeClient?.hourlyRate != null ? String(activeClient.hourlyRate) : ""); setArchiveFlatRate(activeClient?.flatRate != null ? String(activeClient.flatRate) : ""); setArchiveDialogOpen(true); }} variant="default" size="sm" className="gap-1.5 shrink-0" disabled={!activeClient.billingPeriodEnd}>
+                <Button onClick={() => { if (isDemo) { demoBlock(); return } setArchiveHourlyRate(activeClient?.hourlyRate != null ? String(activeClient.hourlyRate) : ""); setArchiveFlatRate(activeClient?.flatRate != null ? String(activeClient.flatRate) : ""); setArchiveDialogOpen(true); }} variant="default" size="sm" className="gap-1.5 shrink-0" disabled={!activeClient.billingPeriodEnd}>
                   <Archive className="h-4 w-4" />
                   Create Invoice
                 </Button>
@@ -444,12 +477,13 @@ export default function Page() {
           </div>
         )}
         {activeClient && selectedInvoice ? (
-          <ArchivedInvoiceView invoice={selectedInvoice} onInvoiceUpdate={(updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} />
+          <ArchivedInvoiceView invoice={selectedInvoice} onInvoiceUpdate={isDemo ? undefined : (updated) => setInvoices((prev) => prev.map((inv) => inv.id === updated.id ? updated : inv))} isDemo={isDemo} />
         ) : activeClient?.billingPeriodStart || activeClient?.id === "nextier" ? (
           <>
             {activeClient.id !== "nextier" && (
               <>
-                <TimeTrackingSection editMode clientId={activeClient.id} clientName={activeClient.name} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} onRateChange={async (newHourly, newFlat) => {
+                <TimeTrackingSection editMode clientId={activeClient.id} clientName={activeClient.name} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={refreshKey} billingPeriodEnd={activeClient.billingPeriodEnd} isDemo={isDemo} onRateChange={async (newHourly, newFlat) => {
+                  if (isDemo) { demoBlock(); return }
                   await updateClientRate(supabase, activeClient.id, newHourly, newFlat)
                   const rows = await fetchClients(supabase)
                   setClients(rows)
@@ -480,11 +514,11 @@ export default function Page() {
                   }
                   setPayablesKey((k) => k + 1)
                 } : undefined} />
-                <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} />
+                <SubscriptionsSection editMode clientId={activeClient.id} refreshKey={refreshKey} isDemo={isDemo} />
               </>
             )}
-            <PayablesSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} />
-            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} />
+            <PayablesSection editMode clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} onPayablesChange={() => setPayablesKey((k) => k + 1)} isDemo={isDemo} />
+            <GrandTotalSection clientId={activeClient.id} hourlyRate={activeClient.hourlyRate} flatRate={activeClient.flatRate} refreshKey={payablesKey + refreshKey} isDemo={isDemo} />
           </>
         ) : null}
 
@@ -495,7 +529,7 @@ export default function Page() {
               <KeyRound className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold">Passcodes</h2>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={openAddPasscodeDialog}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { if (isDemo) { demoBlock(); return } openAddPasscodeDialog() }}>
               <Plus className="h-4 w-4" />
               Add Passcode
             </Button>
@@ -535,10 +569,10 @@ export default function Page() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPasscodeDialog(p)} aria-label="Edit passcode">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (isDemo) { demoBlock(); return } openEditPasscodeDialog(p) }} aria-label="Edit passcode">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setPasscodeDeleteId(p.id)} aria-label="Delete passcode">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (isDemo) { demoBlock(); return } setPasscodeDeleteId(p.id) }} aria-label="Delete passcode">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>

@@ -46,6 +46,8 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { useDemoGuard } from "@/lib/use-demo-guard";
+import { demoTimeEntries } from "@/lib/demo-data";
 import { Plus, Pencil, Trash2, Paperclip, X, Download, ExternalLink } from "lucide-react";
 
 
@@ -122,6 +124,7 @@ export function TimeTrackingSection({
   flatRate = null,
   refreshKey = 0,
   billingPeriodEnd = null,
+  isDemo: isDemoProp = false,
   onRateChange,
   onEntriesChange,
 }: {
@@ -132,10 +135,13 @@ export function TimeTrackingSection({
   flatRate?: number | null;
   refreshKey?: number;
   billingPeriodEnd?: string | null;
+  isDemo?: boolean;
   onRateChange?: (hourlyRate: number | null, flatRate: number | null) => void;
   onEntriesChange?: (entries: TimeEntry[]) => void;
 }) {
   const { supabase } = useAuth();
+  const { guardAction } = useDemoGuard();
+  const demoBlock = guardAction(() => {});
   const HOURLY_RATE = hourlyRate;
   const FLAT_RATE = flatRate;
   const [rateDialogOpen, setRateDialogOpen] = useState(false);
@@ -176,6 +182,12 @@ export function TimeTrackingSection({
 
   // Fetch entries from Supabase on mount / client change
   useEffect(() => {
+    if (isDemoProp) {
+      setEntries(demoTimeEntries[clientId] ?? []);
+      setMounted(true);
+      return;
+    }
+
     let cancelled = false;
     setMounted(false);
     setError(null);
@@ -205,7 +217,7 @@ export function TimeTrackingSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase, refreshKey]);
+  }, [clientId, supabase, refreshKey, isDemoProp]);
 
   const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
   const totalCost = entries.length === 0
@@ -217,6 +229,7 @@ export function TimeTrackingSection({
   const calculatedHours = calcHours(form.startTime, form.endTime);
 
   function openAdd() {
+    if (isDemoProp) { demoBlock(); return }
     setEditingEntry(null);
     setForm(emptyForm);
     setPendingFiles([]);
@@ -226,6 +239,7 @@ export function TimeTrackingSection({
   }
 
   function openEdit(entry: TimeEntry) {
+    if (isDemoProp) { demoBlock(); return }
     setEditingEntry(entry);
     setForm({
       date: entry.date,
@@ -242,6 +256,7 @@ export function TimeTrackingSection({
   }
 
   async function handleSave() {
+    if (isDemoProp) { demoBlock(); return }
     if (!form.date) return;
     if (FLAT_RATE == null && !form.startTime) return;
     if (form.endTime && calculatedHours <= 0) return;
@@ -317,6 +332,7 @@ export function TimeTrackingSection({
   }
 
   async function handleDelete(id: string) {
+    if (isDemoProp) { demoBlock(); return }
     const prev = entries;
     const entryToDelete = entries.find((e) => e.id === id);
     setEntries(entries.filter((e) => e.id !== id));

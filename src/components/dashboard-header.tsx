@@ -6,7 +6,7 @@ import { handlePrint } from "@/lib/print"
 
 export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientName?: string }) {
   const { pathname } = useLocation()
-  const { signOut, isAdmin, clientId } = useAuth()
+  const { signOut, isAdmin, isDemo, clientId } = useAuth()
 
   const isReports = pathname === "/reports"
   const isArchives = pathname === "/archives"
@@ -62,8 +62,13 @@ export function DashboardHeader({ clientName = "Cygnet Institute" }: { clientNam
               )}
             </nav>
           )}
+          {isDemo && (
+            <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/30 dark:text-violet-400">
+              Demo Mode
+            </span>
+          )}
           <span className="text-sm text-muted-foreground hidden sm:inline">
-            {isAdmin ? "Admin" : clientName}
+            {isDemo ? "Demo" : isAdmin ? "Admin" : clientName}
           </span>
           <Button
             variant="outline"

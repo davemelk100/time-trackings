@@ -36,6 +36,8 @@ import {
   deleteAllAttachments,
 } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { useDemoGuard } from "@/lib/use-demo-guard";
+import { demoPayables } from "@/lib/demo-data";
 import {
   Select,
   SelectContent,
@@ -71,15 +73,19 @@ export function PayablesSection({
   clientId = "cygnet",
   hourlyRate = null,
   flatRate = null,
+  isDemo: isDemoProp = false,
   onPayablesChange,
 }: {
   editMode?: boolean;
   clientId?: string;
   hourlyRate?: number | null;
   flatRate?: number | null;
+  isDemo?: boolean;
   onPayablesChange?: () => void;
 }) {
   const { supabase } = useAuth();
+  const { guardAction } = useDemoGuard();
+  const demoBlock = guardAction(() => {});
   const [payables, setPayables] = useState<Payable[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +103,12 @@ export function PayablesSection({
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   useEffect(() => {
+    if (isDemoProp) {
+      setPayables(demoPayables[clientId] ?? []);
+      setLoaded(true);
+      return;
+    }
+
     let cancelled = false;
     setLoaded(false);
     setError(null);
@@ -153,13 +165,14 @@ export function PayablesSection({
     return () => {
       cancelled = true;
     };
-  }, [clientId, supabase, hourlyRate, flatRate]);
+  }, [clientId, supabase, hourlyRate, flatRate, isDemoProp]);
 
   const total = payables.reduce((sum, p) => sum + p.amount, 0);
 
   const defaultPayee = clientId === "cygnet" ? "nextier" : "self";
 
   const openAdd = useCallback(() => {
+    if (isDemoProp) { demoBlock(); return }
     setEditingId(null);
     setForm({
       ...emptyForm,
@@ -176,6 +189,7 @@ export function PayablesSection({
   }, []);
 
   const openEdit = useCallback((p: Payable) => {
+    if (isDemoProp) { demoBlock(); return }
     setEditingId(p.id);
     setForm({
       description: p.description,
@@ -192,6 +206,7 @@ export function PayablesSection({
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (isDemoProp) { demoBlock(); return }
     if (!form.description.trim()) return;
 
     const payableId = editingId ?? crypto.randomUUID();
@@ -321,6 +336,7 @@ export function PayablesSection({
 
   const handleDelete = useCallback(
     async (id: string) => {
+      if (isDemoProp) { demoBlock(); return }
       const prev = payables;
       const toDelete = payables.find((p) => p.id === id);
       setPayables((current) => current.filter((p) => p.id !== id));

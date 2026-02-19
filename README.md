@@ -2,7 +2,7 @@
 
 Internal dashboard for tracking billable hours, software subscriptions, and payables across clients. Built for Melkonian Industries LLC.
 
-**Production:** https://melkonian-industries.netlify.app
+**Production:** https://time-trackings.netlify.app/
 
 ## Features
 
@@ -16,14 +16,14 @@ Internal dashboard for tracking billable hours, software subscriptions, and paya
 
 ## Tech Stack
 
-| Layer | Tool |
-|-------|------|
-| Framework | Next.js 16 |
-| UI | React 19, Tailwind CSS, Radix UI, shadcn/ui |
-| Database | Supabase (Postgres) |
-| File Storage | Supabase Storage (`receipts` bucket) |
-| Auth | Passcode-based sessions (HTTP-only cookies) |
-| Testing | Vitest, Testing Library |
+| Layer        | Tool                                        |
+| ------------ | ------------------------------------------- |
+| Framework    | Next.js 16                                  |
+| UI           | React 19, Tailwind CSS, Radix UI, shadcn/ui |
+| Database     | Supabase (Postgres)                         |
+| File Storage | Supabase Storage (`receipts` bucket)        |
+| Auth         | Passcode-based sessions (HTTP-only cookies) |
+| Testing      | Vitest, Testing Library                     |
 
 ## Getting Started
 
@@ -52,25 +52,25 @@ npm run dev
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npm run start` | Serve production build |
-| `npm test` | Run test suite |
+| Command              | Description             |
+| -------------------- | ----------------------- |
+| `npm run dev`        | Start dev server        |
+| `npm run build`      | Production build        |
+| `npm run start`      | Serve production build  |
+| `npm test`           | Run test suite          |
 | `npm run test:watch` | Run tests in watch mode |
-| `npm run lint` | Run ESLint |
+| `npm run lint`       | Run ESLint              |
 
 ## Authentication
 
 Access is controlled by 5-digit passcodes set via environment variables. Each passcode maps to a role:
 
-| Env Variable | Role | Access |
-|---|---|---|
-| `PASSCODE_ADMIN` | Admin | All routes, all clients |
-| `PASSCODE_CYGNET` | Client | `/client/cygnet` only |
+| Env Variable        | Role   | Access                  |
+| ------------------- | ------ | ----------------------- |
+| `PASSCODE_ADMIN`    | Admin  | All routes, all clients |
+| `PASSCODE_CYGNET`   | Client | `/client/cygnet` only   |
 | `PASSCODE_MINDFLIP` | Client | `/client/client-b` only |
-| `PASSCODE_NEXTIER` | Client | `/client/nextier` only |
+| `PASSCODE_NEXTIER`  | Client | `/client/nextier` only  |
 
 ## Project Structure
 
